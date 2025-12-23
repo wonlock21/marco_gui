@@ -45,7 +45,7 @@ class MainActivity : FlutterActivity() {
     private val TARGET_DEVICE_NAME = "Lift Ant" 
     
     // Bluetooth Seri Port Profili (SPP) için standart UUID.
-    // HC-05, HC-06 gibi modüllerle konuşmak için bu numara standarttır, değiştirilmez.
+    // HC-05, HC-06 gibi modüllerle konuşmak için bu numara standarttır, DEĞİŞTİRMEYİN.
     private val MY_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     
     // Bağlantı değişkenleri
