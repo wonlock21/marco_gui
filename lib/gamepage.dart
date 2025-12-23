@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'background.dart';
 import 'joystick.dart';
-import 'package:flutter/services.dart'; //MethodChannel için gerekli
+import 'camera_view.dart';
+import 'bluetooth_button.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -11,123 +13,64 @@ class GamePage extends StatefulWidget {
 }
 
 class _GamePageState extends State<GamePage> {
-  // Native tarafla konuşacak kanal
-  static const channel = MethodChannel('agv/native');
-
-  // Bağlantı durumu ve yükleniyor animasyonu için değişkenler. Bluetooth bağlanınca falan renk değişmesi için
-  bool isConnected = false;
-  bool isLoading = false;
-
-  void _connectBluetooth() async {
-    // Zaten bağlıysa tekrar deneme
-    if (isConnected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Zaten bağlısın kaptan! 🫡"),
-        ), //bluetooth bağlantısı çoktan yapıldıysa ve tekrar
-      ); //bağlanmaya çalışılıyorsa zaten bağlısın çıktısı veriliyor.
-      return; //eğer çalıştıysa bu fonksiyon bitiriliyor.
-    }
-
-    setState(() {
-      isLoading =
-          true; // hala bağlanmaya çalışıyorsa isLoading kısmında devam ediyor.
-    });
-
-    try {
-      // Native tarafa bağlan emri veriyoruz ve sonucu bekliyoruz
-      final bool result = await channel.invokeMethod(
-        'connect',
-      ); //burda flutter nativeye bluetootha bağlanma emrini verdiği yer
-      //await sayesinde cevap gelene kadar bekliyoruz
-
-      if (mounted) {
-        //mounted ile şuanda telefon ekranında açık olup olmadığı kontrol ediliyo uygulama çökmesin diye. örneğin yanlışıkla bluetooth bağlarken uygulamadan çıktın geri geldiğinde uygulama setstate yüzünden çökmemiş olacak
-        setState(() {
-          isConnected = result; // Sonucu kaydet (true ise yeşil olacak)
-          isLoading = false; // Dönme dolabı durdur
-        });
-
-        if (result) {
-          //eğer sonuç başarılıysa bağlandı diye mesaj vericez
-          // BAŞARILI MESAJI
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("BAĞLANDI! Lift Ant emrinizde. 🚀"),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2), //2 saniye ekranda kalıyo bildirim
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      //eğer bağlantı başarısızsa buraya giriyoruz
-      // HATA MESAJI
-      if (mounted) {
-        //yine uygulama çökmesin diye var. kullanıcı uygulama ekranında değilse bile uygulama çökmez.
-        setState(() {
-          isConnected =
-              false; //setstate ile bağlı olmadığını belirtiyoruz ekranda ve loading kısmını sıfırlıyoruz
-          isLoading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          //hata çıktısı veriyoruz
-          SnackBar(
-            content: Text("HATA: Bağlanamadı. (${e.toString()})"),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-    }
-  }
+  bool isCameraOn = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 1. Arka Plan
-          const BackgroundColor(),
+          // -----------------------------------------------------------
+          // KATMAN 1: ZEMİN (Arka Plan / Kamera)
+          // -----------------------------------------------------------
+          if (isCameraOn)
+            Positioned.fill(
+              child: CameraView(
+                streamUrl: 'http://192.168.1.100:81/stream',
+              ), //kendi ipni gir
+            )
+          else
+            const BackgroundColor(), //eğer kamera kısmında değilsek klasik arka planı ayarla
+          // -----------------------------------------------------------
+          // KATMAN 2: KONTROLLER
+          // -----------------------------------------------------------
 
-          // 2. Joystick (Tam Ortada)
-          const Center(child: Joystick()),
-
-          // 3. Bluetooth Butonu (Sağ Üst)
+          // 1. Joystick
           Positioned(
-            right: 20,
-            top: 50,
-            child: FloatingActionButton.small(
-              onPressed: isLoading
-                  ? null
-                  : _connectBluetooth, // Yüklenirken basılamaz
-              // Bağlıysa YEŞİL, Değilse İNDIGO, Yükleniyorsa GRİ
-              backgroundColor: isConnected ? Colors.green : Colors.indigo,
-              child: isLoading
-                  ? const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Icon(
-                      isConnected ? Icons.bluetooth_connected : Icons.bluetooth,
-                      color: Colors.white,
-                    ),
+            right: 30.w, //joystick konumu ayarlı screenutil ile yapıldı
+            bottom: 30.h,
+            child: Joystick(
+              isCameraOn: isCameraOn,
+            ), //isCameraOn joystick kamera açıkken de gözüksün diye var, arka planı saydamlaştırıyorum onun sayesinde
+          ),
+
+          // 2. Bluetooth Butonu
+          Positioned(
+            right: 30.w, //bt konumu ayarlı screenutil ile yapıldı
+            top: 10.h,
+            child: SafeArea(
+              child: BluetoothButton(onConnectionChanged: (status) {}),
             ),
           ),
 
-          // 4. Durum Yazısı (Sol Üst)
+          // 3. Kamera Aç/Kapa Butonu
           Positioned(
-            left: 20,
-            top: 60,
-            child: Text(
-              isConnected ? "BAĞLI: Lift Ant" : "BAĞLANTI YOK",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: isConnected ? Colors.greenAccent : Colors.white70,
-                shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
+            left: 30.w, //kamera buton konumu ayarlı
+            top: 10.h,
+            child: SafeArea(
+              child: FloatingActionButton.small(
+                //.small ile buton boyutu küçültüldü
+                heroTag: "btn_camera",
+                onPressed: () => setState(
+                  () => isCameraOn = !isCameraOn,
+                ), //butona basıldığında ekranı kamera görüntüsüne çeviriyor.
+                backgroundColor: isCameraOn ? Colors.redAccent : Colors.white,
+                child: Icon(
+                  isCameraOn ? Icons.videocam_off : Icons.videocam,
+                  color: isCameraOn ? Colors.white : Colors.black,
+                  size: 20.r,
+                ),
               ),
             ),
           ),

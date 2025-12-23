@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_mjpeg: ^2.0.4
+  flutter_screenutil: ^5.9.3
 
 dev_dependencies:
   flutter_test:

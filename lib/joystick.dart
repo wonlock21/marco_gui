@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class Joystick extends StatefulWidget {
-  const Joystick({super.key});
+  // Dışarıdan gelen "Kamera açık mı?" bilgisini alıyoruz
+  final bool isCameraOn;
+
+  const Joystick({super.key, this.isCameraOn = false});
 
   @override
   State<Joystick> createState() => _JoystickState();
@@ -13,10 +17,13 @@ class _JoystickState extends State<Joystick> {
   // Native kanal (MainActivity.kt ile konuşur)
   static const channel = MethodChannel('agv/native');
 
-  Offset offset = Offset
-      .zero; //Offset kendisi x y axisleri oluşturuyor. böylece pisagor teoremiyle uğraşmaya gerek kalmıyor
-  final double radius = 60; // Joystick boyutunu ayarladık
-  final double deadZone = 6; // Hassasiyet ölü bölgesi
+  // Offset kendisi x y axisleri oluşturuyor. böylece pisagor teoremiyle uğraşmaya gerek kalmıyor
+  Offset offset = Offset.zero;
+
+  // Joystick boyutunu ayarladık (.r ile ekrana göre orantılı)
+  late final double radius = 60.r;
+  // Hassasiyet ölü bölgesi
+  late final double deadZone = 6.r;
 
   // Spam engelleme (Saniyede ~25 paket limiti)
   DateTime _lastSend = DateTime.fromMillisecondsSinceEpoch(0);
@@ -25,8 +32,8 @@ class _JoystickState extends State<Joystick> {
   // Sadece son yönü tutuyoruz (Değişiklik kontrolü için)
   int _lastDir = 999;
 
-  //nativeye gönderilecekleri ayarlıyoruz, kodumda native backend kullandım.
-  //native kodlarını görmek için MainActivity.kt dosyasına bakın.
+  // nativeye gönderilecekleri ayarlıyoruz, kodumda native backend kullandım.
+  // native kodlarını görmek için MainActivity.kt dosyasına bakın.
   void sendToNative(Offset o) {
     // 1. DEADZONE (DUR)
     if (o.distance < deadZone) {
@@ -47,7 +54,7 @@ class _JoystickState extends State<Joystick> {
     _lastSend = now;
 
     // 3. YÖN HESABI (0-360 Derece -> 0-7 Yön)
-    //nativeye 0 ile 7 arasında sayı göndericem ona göre makinaya bunlar gönderilecek ve makina hareket edecek
+    // nativeye 0 ile 7 arasında sayı göndericem ona göre makinaya bunlar gönderilecek ve makina hareket edecek
     double angle = atan2(-o.dy, o.dx) * 180 / pi;
     if (angle < 0) angle += 360;
 
@@ -60,7 +67,6 @@ class _JoystickState extends State<Joystick> {
     }
 
     _lastDir = direction;
-
     // Native tarafa sadece "dir" gönderiyoruz
     channel.invokeMethod('joystick', {'dir': direction});
   }
@@ -78,66 +84,85 @@ class _JoystickState extends State<Joystick> {
       (150 * (1 - strength)).toInt(),
     );
 
-    //BURASI JOYSTICKIN EN ONEMLI NOKTASI
+    // BURASI JOYSTICKIN EN ONEMLI NOKTASI
     return GestureDetector(
       onPanUpdate: (details) {
-        //onPanUpdate ile joysticke dokunulduğunda ne yapacağını belirtiroyruz.
-        Offset next =
-            offset +
-            details
-                .delta; //burada details.delta ile delta(değişim) miktarını var olan konuma ekleyip yeni konumunu buluyoruz joystickin.
+        // onPanUpdate ile joysticke dokunulduğunda ne yapacağını belirtiroyruz.
+        // burada details.delta ile delta(değişim) miktarını var olan konuma ekleyip yeni konumunu buluyoruz joystickin.
+        Offset next = offset + details.delta;
 
+        // Bu if bloğuyla beraber joystickin ekranın dışına çıkmasını engelliyoruz
         if (next.distance > radius) {
-          //Bu if bloğuyla beraber joystickin ekranın dışına çıkmasını engelliyoruz
+          // Eğer hesapladığın yeni yer (next), çemberin sınırından (radius) daha uzaktaysa açıyı bozmadan mesafeyi kısaltıyoruz.
           next = Offset.fromDirection(next.direction, radius);
-        } //Eğer hesapladığın yeni yer (next), çemberin sınırından (radius) daha uzaktaysa açıyı bozmadan mesafeyi kısaltıyoruz.
+        }
 
-        setState(
-          () => offset = next,
-        ); //setstate yaptık ekranı yeniden boyatıp joystickin güncel konumunu gösteriyoruz.
-        sendToNative(offset); //kordinatı da nativeye gönderiyoruz.(backende)
+        // setstate yaptık ekranı yeniden boyatıp joystickin güncel konumunu gösteriyoruz.
+        setState(() => offset = next);
+        // kordinatı da nativeye gönderiyoruz.(backende)
+        sendToNative(offset);
       },
       onPanEnd: (_) {
-        //burası parmağı joystickten çektiğimizde çalışıyor.
-        setState(
-          () => offset = Offset.zero,
-        ); //parmak çekildiği anda offset zero olarak ayarlanıyor.
-        sendToNative(Offset.zero); //nativeye haber gidiyor.
+        // burası parmağı joystickten çektiğimizde çalışıyor.
+        // parmak çekildiği anda offset zero olarak ayarlanıyor.
+        setState(() => offset = Offset.zero);
+        // nativeye haber gidiyor.
+        sendToNative(Offset.zero);
       },
       child: Container(
-        width: radius * 2, //joysticki barındıracak çemberin boyutunu belirledim
+        // joysticki barındıracak çemberin boyutunu belirledim
+        width: radius * 2,
         height: radius * 2,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          // Eğer withValues hata verirse yerine .withOpacity(0.15) yazabilirsin
-          color: Colors.black.withValues(alpha: 0.15),
+          // Kamera açıksa beyazımsı, değilse eski şeffaf siyah
+          // Güncelleme: withOpacity yerine withValues(alpha:) kullanıldı
+          color: widget.isCameraOn
+              ? Colors.white.withValues(alpha: 0.2)
+              : Colors.black.withValues(alpha: 0.15),
+          boxShadow: widget.isCameraOn
+              ? [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.2), // Güncellendi
+                    blurRadius: 20.r,
+                    spreadRadius: 2.r,
+                  ),
+                ]
+              : null,
         ),
         child: Stack(
-          alignment: Alignment.center, //joysticki merkeze yerleştirdim
+          alignment: Alignment.center, // joysticki merkeze yerleştirdim
           children: [
             // İç feedback çemberi
             Container(
-              width:
-                  radius *
-                  1.4, //burada kontrol çemberi tarzı bir şey ekledim çemberin içine ikincil bir çember.
+              // burada kontrol çemberi tarzı bir şey ekledim çemberin içine ikincil bir çember.
+              width: radius * 1.4,
               height: radius * 1.4,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withValues(alpha: 0.05), // Güncellendi
               ),
             ),
             // Hareketli Joystick Topu
             Transform.translate(
-              //Transform.translate sayesinde hareketli yapıyoruz
-              offset:
-                  offset, //onPanUpdatede hesapladığımız verileri buraya veriyoruz
+              // Transform.translate sayesinde hareketli yapıyoruz
+              // onPanUpdatede hesapladığımız verileri buraya veriyoruz
+              offset: offset,
               child: Container(
-                width: 31, //genişlik bilgileri
-                height: 31,
+                // genişlik bilgileri (.r ile responsive)
+                width: 30.r,
+                height: 30.r,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color:
-                      knobColor, //rengini ayarladık, rengi çektikçe kırmızıya kayıyor
+                  // rengini ayarladık, rengi çektikçe kırmızıya kayıyor
+                  color: knobColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3), // Güncellendi
+                      blurRadius: 5.r,
+                      offset: Offset(2.w, 2.h),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart'; // <--- 1. IMPORT ET
 import 'gamepage.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Ekranı YAN (Landscape) moduna kilitle
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]).then((_) {
+    runApp(const MyApp());
+  });
 }
 
 class MyApp extends StatelessWidget {
@@ -10,9 +20,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: GamePage(),
+    // 2. ScreenUtilInit İLE SAR
+    return ScreenUtilInit(
+      // Referans Tasarım Boyutu (iPhone 13/14 Pro Landscape yaklaşık boyutu)
+      // Genişlik: 844, Yükseklik: 390
+      designSize: const Size(844, 390),
+      minTextAdapt: true,
+      splitScreenMode: true,
+      // Builder içinde MaterialApp döndür
+      builder: (context, child) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Lift Ant Controller',
+          theme: ThemeData(
+            brightness: Brightness.dark,
+            primarySwatch: Colors.blue,
+          ),
+          home: const GamePage(),
+        );
+      },
     );
   }
 }
