@@ -22,7 +22,7 @@ enum class Direction(val flutterIdx: Int, val agvCommand: String) {
     STOP(-1, "0"),       // Durma komutu
     RIGHT(0, "2"),       // Sağ
     UP_RIGHT(1, "12"),   // Sağ Çapraz
-    UP(2, "22"),         // İleri
+    UP(2, "1"),         // İleri
     UP_LEFT(3, "41"),    // Sol Çapraz
     LEFT(4, "4"),        // Sol
     DOWN_LEFT(5, "34"),  // Geri Sol
@@ -161,7 +161,7 @@ class MainActivity : FlutterActivity() {
         
         // Arduino'nun anlayacağı format: <41>\n
         // \n (yeni satır) komutun bittiğini gösterir.
-        val finalCommand = "<$commandStr>\n"
+        val finalCommand = "$commandStr\n"
         
         try {
             // Veriyi byte dizisine çevir ve gönder
