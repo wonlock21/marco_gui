@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'log_manager.dart';
 
 class Joystick extends StatefulWidget {
   // Dışarıdan gelen "Kamera açık mı?" bilgisini alıyoruz
@@ -21,9 +21,12 @@ class _JoystickState extends State<Joystick> {
   Offset offset = Offset.zero;
 
   // Joystick boyutunu ayarladık (.r ile ekrana göre orantılı)
-  late final double radius = 60.r;
+  // DEĞİŞİKLİK: Bu değerleri artık build içinde ekran boyutuna göre hesaplayacağız
+  late double radius;
   // Hassasiyet ölü bölgesi
-  late final double deadZone = 6.r;
+  late double deadZone;
+  // Hareketli topun boyutu (Eskiden 30.r idi)
+  late double knobSize;
 
   // Spam engelleme (Saniyede ~25 paket limiti)
   DateTime _lastSend = DateTime.fromMillisecondsSinceEpoch(0);
@@ -31,6 +34,19 @@ class _JoystickState extends State<Joystick> {
 
   // Sadece son yönü tutuyoruz (Değişiklik kontrolü için)
   int _lastDir = 999;
+
+  //logları göndermek için de burda native kodlarındaki enum tarzı bir şey yaptım.
+  final Map<int, String> agvLabels = {
+    -1: "DUR:0",
+    0: "SAĞ:2", // Kotlin: RIGHT
+    1: "SAĞ_İLERİ:12", // Kotlin: UP_RIGHT
+    2: "İLERİ:1", // Kotlin: UP
+    3: "SOL_İLERİ:41", // Kotlin: UP_LEFT
+    4: "SOL:4", // Kotlin: LEFT
+    5: "SOL_GERİ:34", // Kotlin: DOWN_LEFT
+    6: "GERİ:3", // Kotlin: DOWN
+    7: "SAĞ_GERİ:23", // Kotlin: DOWN_RIGHT
+  };
 
   // nativeye gönderilecekleri ayarlıyoruz, kodumda native backend kullandım.
   // native kodlarını görmek için MainActivity.kt dosyasına bakın.
@@ -40,6 +56,10 @@ class _JoystickState extends State<Joystick> {
       if (_lastDir != -1) {
         _lastDir = -1;
         debugPrint('DUR komutu gönderildi.');
+
+        // Log dosyasına gönderiyoruz (Sözlükten çekerek)
+        LogManager.addLog(agvLabels[-1]!);
+
         // Sadece dur (-1) diyoruz, güç yok
         channel.invokeMethod('joystick', {'dir': -1});
       }
@@ -68,11 +88,26 @@ class _JoystickState extends State<Joystick> {
 
     _lastDir = direction;
     // Native tarafa sadece "dir" gönderiyoruz
+
+    // Log dosyasına gönderiyoruz komutları (GÜNCELLENDİ)
+    // Artık sadece sayı değil, sözlükteki ismini yazıyor (örn: SOL_İLERİ:41)
+    String logMsg = agvLabels[direction] ?? "BİLİNMEYEN:$direction";
+    LogManager.addLog(logMsg);
+
     channel.invokeMethod('joystick', {'dir': direction});
   }
 
   @override
   Widget build(BuildContext context) {
+    // --- BURASI DÜZELTİLDİ ---
+    // Ekranın yüksekliğini alıp oranlıyoruz.
+    double screenHeight = MediaQuery.of(context).size.height;
+
+    radius = screenHeight * 0.18; // Senin ayarladığın %18'i korudum
+    deadZone = radius * 0.05; // Radius'un %5'i kadar ölü bölge
+    knobSize = radius * 0.5; // Topun boyutu radius'un yarısı
+    // -------------------------
+
     // Görsel efekt için strength hesaplıyorum joystick ilerledikçe renk değiştirecek. backendde kullanmıyoruz ama olsun.
     final double strength = (offset.distance / radius).clamp(0.0, 1.0);
 
@@ -116,7 +151,6 @@ class _JoystickState extends State<Joystick> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           // Kamera açıksa beyazımsı, değilse eski şeffaf siyah
-          // Güncelleme: withOpacity yerine withValues(alpha:) kullanıldı
           color: widget.isCameraOn
               ? Colors.white.withValues(alpha: 0.2)
               : Colors.black.withValues(alpha: 0.15),
@@ -124,8 +158,8 @@ class _JoystickState extends State<Joystick> {
               ? [
                   BoxShadow(
                     color: Colors.white.withValues(alpha: 0.2), // Güncellendi
-                    blurRadius: 20.r,
-                    spreadRadius: 2.r,
+                    blurRadius: 20, // .r sildik
+                    spreadRadius: 2, // .r sildik
                   ),
                 ]
               : null,
@@ -149,9 +183,9 @@ class _JoystickState extends State<Joystick> {
               // onPanUpdatede hesapladığımız verileri buraya veriyoruz
               offset: offset,
               child: Container(
-                // genişlik bilgileri (.r ile responsive)
-                width: 30.r,
-                height: 30.r,
+                // genişlik bilgileri (artık dinamik knobSize)
+                width: knobSize,
+                height: knobSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   // rengini ayarladık, rengi çektikçe kırmızıya kayıyor
@@ -159,8 +193,8 @@ class _JoystickState extends State<Joystick> {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.3), // Güncellendi
-                      blurRadius: 5.r,
-                      offset: Offset(2.w, 2.h),
+                      blurRadius: 5, // .r sildik
+                      offset: Offset(2, 2), // .w ve .h sildik
                     ),
                   ],
                 ),

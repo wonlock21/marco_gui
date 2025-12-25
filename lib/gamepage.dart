@@ -4,6 +4,7 @@ import 'background.dart';
 import 'joystick.dart';
 import 'camera_view.dart';
 import 'bluetooth_button.dart';
+import 'log_manager.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -39,7 +40,7 @@ class _GamePageState extends State<GamePage> {
           // 1. Joystick
           Positioned(
             right: 30.w, //joystick konumu ayarlı screenutil ile yapıldı
-            bottom: 30.h,
+            bottom: 15.h,
             child: Joystick(
               isCameraOn: isCameraOn,
             ), //isCameraOn joystick kamera açıkken de gözüksün diye var, arka planı saydamlaştırıyorum onun sayesinde
@@ -71,6 +72,22 @@ class _GamePageState extends State<GamePage> {
                   color: isCameraOn ? Colors.white : Colors.black,
                   size: 20.r,
                 ),
+              ),
+            ),
+          ),
+
+          // 4.LOG BUTONU
+          Positioned(
+            top: 50.h,
+            left: 30.w,
+            child: SafeArea(
+              child: FloatingActionButton.small(
+                heroTag: "btn_logs",
+                backgroundColor: Colors.black54,
+                child: const Icon(Icons.terminal, color: Colors.greenAccent),
+                onPressed: () {
+                  LogManager.show(context);
+                },
               ),
             ),
           ),

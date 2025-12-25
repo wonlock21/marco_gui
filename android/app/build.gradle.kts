@@ -26,7 +26,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         
         // --- KRİTİK DEĞİŞİKLİK BURADA ---
-        minSdk = flutter.minSdkVersion  // Kamera paketi en az 21 ister. 
+        minSdk = flutter.minSdkVersion
         
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
