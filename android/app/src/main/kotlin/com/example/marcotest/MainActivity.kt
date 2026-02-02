@@ -41,12 +41,11 @@ class MainActivity : FlutterActivity() {
     private val CHANNEL = "agv/native"
 
     // Bluetooth Seri Port Profili (SPP) için standart UUID.
-    // HC-05, HC-06 gibi modüllerle konuşmak için bu numara standarttır, DEĞİŞTİRMEYİN.
     private val MY_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     // Bağlantı değişkenleri
-    private var btSocket: BluetoothSocket? = null      // Bağlantı kablosu (Soket)
-    private var outStream: OutputStream? = null        // Veri gönderme borusu
+    private var btSocket: BluetoothSocket? = null       // Bağlantı kablosu (Soket)
+    private var outStream: OutputStream? = null         // Veri gönderme borusu
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter() // Telefonun BT donanımı
 
     // Uygulama açıldığında veya Flutter motoru ayağa kalktığında burası çalışır
@@ -57,26 +56,34 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
 
-                // SENARYO 1: Joystick Hareket Etti
+                // SENARYO 1: Joystick Hareket Etti (SÜRÜŞ)
                 if (call.method == "joystick") {
-                    // Flutter'dan gelen yön kodunu al (0-7 arası sayı)
                     val dirCode = call.argument<Int>("dir") ?: -1
-
-                    // 1. Gelen sayıyı bizim Enum sözlüğünden bul
                     val direction = Direction.fromFlutterIdx(dirCode)
-
-                    // 2. Enum'un içindeki Arduino komutunu (örn: "41") Bluetooth'tan gönder
                     sendBluetoothCommand(direction.agvCommand)
-
-                    // İşlem başarılı, Flutter'a "Tamam" de.
                     result.success(null)
                 }
+                
+                // SENARYO 5: Lift (Asansör) Kontrolü (YENİ EKLENDİ)
+                else if (call.method == "lift") {
+                    // Flutter'dan gelen aksiyonu al: 1 (Yukarı), -1 (Aşağı), 0 (Dur)
+                    val action = call.argument<Int>("action") ?: 0
+                    
+                    val commandToSend = when (action) {
+                        1 -> "8"      // Yukarı (Arduino kodu)
+                        -1 -> "9"     // Aşağı (Arduino kodu)
+                        else -> "0"   // Dur (Arduino kodu)
+                    }
+                    
+                    sendBluetoothCommand(commandToSend)
+                    result.success(null)
+                }
+
                 // SENARYO 2: Cihazları Listele 
                 else if (call.method == "getPairedDevices") {
                     if (bluetoothAdapter == null) {
                         result.error("NO_BT", "Bluetooth yok", null)
                     } else {
-                        // Eşleşmiş cihazları alıp List<Map> olarak Flutter'a atıyoruz
                         val devices = bluetoothAdapter.bondedDevices.map { device ->
                             mapOf("name" to device.name, "address" to device.address)
                         }
@@ -106,67 +113,52 @@ class MainActivity : FlutterActivity() {
 
     /**
      * Bluetooth cihazına ADRES üzerinden bağlanma fonksiyonu.
-     * pendingResult: İşlem bitince Flutter'a cevap vermek için kullanılan geri bildirim kutusu.
      */
     private fun connectToDevice(address: String, pendingResult: MethodChannel.Result) {
-        // Telefonun Bluetooth özelliği var mı?
         if (bluetoothAdapter == null) {
             pendingResult.error("NO_BT", "Bluetooth yok", null)
             return
         }
 
-        // Bağlantı işlemi uzun sürer, bu yüzden ANA EKRANI DONDURMAMAK İÇİN
-        // ayrı bir iş parçacığında (Thread) çalıştırıyoruz.
         Thread {
             try {
-                // Varsa eski bağlantıyı temizle
                 closeConnection()
-
-                // MAC adresi üzerinden cihazı bul
                 val device = bluetoothAdapter.getRemoteDevice(address)
-
-                // 1. Bağlantı soketi oluştur
                 btSocket = device.createRfcommSocketToServiceRecord(MY_UUID)
-                // 2. Bağlan (Kapıyı çal)
                 btSocket?.connect()
-                // 3. Veri gönderme borusunu (Output Stream) ele geçir
                 outStream = btSocket?.outputStream
-
-                // ANA EKRANA (UI Thread) GERİ DÖN VE MÜJDEYİ VER
                 Handler(Looper.getMainLooper()).post { pendingResult.success(true) }
 
             } catch (e: Exception) {
-                // Bir hata olduysa soketi temizle
                 closeConnection()
-
-                // Hatayı Flutter'a bildir
                 Handler(Looper.getMainLooper()).post { pendingResult.error("ERROR", e.message, null) }
             }
-        }.start() // Thread'i başlat
+        }.start()
     }
 
     /**
      * Veriyi Bluetooth üzerinden gönderen fonksiyon.
-     * Format: <KOMUT>  (Örnek: <41>)
+     * Format: <KOMUT> 
      */
     private fun sendBluetoothCommand(commandStr: String) {
-        // Eğer boru hattı (Stream) yoksa hiçbir şey yapma
-        if (outStream == null) return
+        // Bağlantı kontrolü
+        if (outStream == null || btSocket == null) {
+            android.util.Log.w("Bluetooth", "Bluetooth bağlı değil, komut gönderilemedi: $commandStr")
+            return
+        }
 
-        // Arduino'nun anlayacağı format: <41>\n
-        // \n (yeni satır) komutun bittiğini gösterir.
-        val finalCommand = "$commandStr\n"
+        // Arduino protokolüne uygun olarak veriyi paketliyoruz
+        val finalCommand = "<$commandStr>\n"
 
         try {
-            // Veriyi byte dizisine çevir ve gönder
             outStream?.write(finalCommand.toByteArray())
+            android.util.Log.d("Bluetooth", "Komut gönderildi: $commandStr")
         } catch (e: IOException) {
-            // Gönderirken hata olursa (bağlantı koptuysa)
+            android.util.Log.e("Bluetooth", "Gönderme hatası: ${e.message}")
             closeConnection()
         }
     }
 
-    // Bağlantıyı temizleyen yardımcı fonksiyon
     private fun closeConnection() {
         try {
             outStream?.close()

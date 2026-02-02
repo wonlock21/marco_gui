@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math';
 import 'log_manager.dart';
+import 'agv_settings.dart'; // <--- 1. AYARLARI İÇERİ ALDIK
 
 class Joystick extends StatefulWidget {
   // Dışarıdan gelen "Kamera açık mı?" bilgisini alıyoruz
@@ -99,110 +100,121 @@ class _JoystickState extends State<Joystick> {
 
   @override
   Widget build(BuildContext context) {
-    // --- BURASI DÜZELTİLDİ ---
-    // Ekranın yüksekliğini alıp oranlıyoruz.
-    double screenHeight = MediaQuery.of(context).size.height;
+    // <--- 2. BURAYA DİNLEYİCİ EKLEDİK (Tüm build'i sarmaladık)
+    return ValueListenableBuilder<double>(
+      valueListenable: SettingsManager.joystickScaleNotifier,
+      builder: (context, scale, child) {
+        // Ekranın yüksekliğini alıp oranlıyoruz.
+        double screenHeight = MediaQuery.of(context).size.height;
 
-    radius = screenHeight * 0.18; // Senin ayarladığın %18'i korudum
-    deadZone = radius * 0.05; // Radius'un %5'i kadar ölü bölge
-    knobSize = radius * 0.5; // Topun boyutu radius'un yarısı
-    // -------------------------
+        // <--- 3. KRİTİK HAMLE: Senin %18 oranını 'scale' (ayar) ile çarptık
+        radius = (screenHeight * 0.18) * scale;
 
-    // Görsel efekt için strength hesaplıyorum joystick ilerledikçe renk değiştirecek. backendde kullanmıyoruz ama olsun.
-    final double strength = (offset.distance / radius).clamp(0.0, 1.0);
+        deadZone = radius * 0.05; // Radius'un %5'i kadar ölü bölge
+        knobSize = radius * 0.5; // Topun boyutu radius'un yarısı
+        // -------------------------
 
-    // Renk (Mavi → Kırmızı geçişli)
-    final Color knobColor = Color.fromARGB(
-      255,
-      (150 * strength).toInt(),
-      0,
-      (150 * (1 - strength)).toInt(),
-    );
+        // Görsel efekt için strength hesaplıyorum joystick ilerledikçe renk değiştirecek. backendde kullanmıyoruz ama olsun.
+        final double strength = (offset.distance / radius).clamp(0.0, 1.0);
 
-    // BURASI JOYSTICKIN EN ONEMLI NOKTASI
-    return GestureDetector(
-      onPanUpdate: (details) {
-        // onPanUpdate ile joysticke dokunulduğunda ne yapacağını belirtiroyruz.
-        // burada details.delta ile delta(değişim) miktarını var olan konuma ekleyip yeni konumunu buluyoruz joystickin.
-        Offset next = offset + details.delta;
+        // Renk (Mavi → Kırmızı geçişli)
+        final Color knobColor = Color.fromARGB(
+          255,
+          (150 * strength).toInt(),
+          0,
+          (150 * (1 - strength)).toInt(),
+        );
 
-        // Bu if bloğuyla beraber joystickin ekranın dışına çıkmasını engelliyoruz
-        if (next.distance > radius) {
-          // Eğer hesapladığın yeni yer (next), çemberin sınırından (radius) daha uzaktaysa açıyı bozmadan mesafeyi kısaltıyoruz.
-          next = Offset.fromDirection(next.direction, radius);
-        }
+        // BURASI JOYSTICKIN EN ONEMLI NOKTASI
+        return GestureDetector(
+          onPanUpdate: (details) {
+            // onPanUpdate ile joysticke dokunulduğunda ne yapacağını belirtiroyruz.
+            // burada details.delta ile delta(değişim) miktarını var olan konuma ekleyip yeni konumunu buluyoruz joystickin.
+            Offset next = offset + details.delta;
 
-        // setstate yaptık ekranı yeniden boyatıp joystickin güncel konumunu gösteriyoruz.
-        setState(() => offset = next);
-        // kordinatı da nativeye gönderiyoruz.(backende)
-        sendToNative(offset);
-      },
-      onPanEnd: (_) {
-        // burası parmağı joystickten çektiğimizde çalışıyor.
-        // parmak çekildiği anda offset zero olarak ayarlanıyor.
-        setState(() => offset = Offset.zero);
-        // nativeye haber gidiyor.
-        sendToNative(Offset.zero);
-      },
-      child: Container(
-        // joysticki barındıracak çemberin boyutunu belirledim
-        width: radius * 2,
-        height: radius * 2,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          // Kamera açıksa beyazımsı, değilse eski şeffaf siyah
-          color: widget.isCameraOn
-              ? Colors.white.withValues(alpha: 0.2)
-              : Colors.black.withValues(alpha: 0.15),
-          boxShadow: widget.isCameraOn
-              ? [
-                  BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.2), // Güncellendi
-                    blurRadius: 20, // .r sildik
-                    spreadRadius: 2, // .r sildik
+            // Bu if bloğuyla beraber joystickin ekranın dışına çıkmasını engelliyoruz
+            if (next.distance > radius) {
+              // Eğer hesapladığın yeni yer (next), çemberin sınırından (radius) daha uzaktaysa açıyı bozmadan mesafeyi kısaltıyoruz.
+              next = Offset.fromDirection(next.direction, radius);
+            }
+
+            // setstate yaptık ekranı yeniden boyatıp joystickin güncel konumunu gösteriyoruz.
+            setState(() => offset = next);
+            // kordinatı da nativeye gönderiyoruz.(backende)
+            sendToNative(offset);
+          },
+          onPanEnd: (_) {
+            // burası parmağı joystickten çektiğimizde çalışıyor.
+            // parmak çekildiği anda offset zero olarak ayarlanıyor.
+            setState(() => offset = Offset.zero);
+            // nativeye haber gidiyor.
+            sendToNative(Offset.zero);
+          },
+          child: Container(
+            // joysticki barındıracak çemberin boyutunu belirledim
+            width: radius * 2,
+            height: radius * 2,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // Kamera açıksa beyazımsı, değilse eski şeffaf siyah
+              color: widget.isCameraOn
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.15),
+              boxShadow: widget.isCameraOn
+                  ? [
+                      BoxShadow(
+                        color: Colors.white.withValues(
+                          alpha: 0.2,
+                        ), // Güncellendi
+                        blurRadius: 20, // .r sildik
+                        spreadRadius: 2, // .r sildik
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Stack(
+              alignment: Alignment.center, // joysticki merkeze yerleştirdim
+              children: [
+                // İç feedback çemberi
+                Container(
+                  // burada kontrol çemberi tarzı bir şey ekledim çemberin içine ikincil bir çember.
+                  width: radius * 1.4,
+                  height: radius * 1.4,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withValues(alpha: 0.05), // Güncellendi
                   ),
-                ]
-              : null,
-        ),
-        child: Stack(
-          alignment: Alignment.center, // joysticki merkeze yerleştirdim
-          children: [
-            // İç feedback çemberi
-            Container(
-              // burada kontrol çemberi tarzı bir şey ekledim çemberin içine ikincil bir çember.
-              width: radius * 1.4,
-              height: radius * 1.4,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withValues(alpha: 0.05), // Güncellendi
-              ),
-            ),
-            // Hareketli Joystick Topu
-            Transform.translate(
-              // Transform.translate sayesinde hareketli yapıyoruz
-              // onPanUpdatede hesapladığımız verileri buraya veriyoruz
-              offset: offset,
-              child: Container(
-                // genişlik bilgileri (artık dinamik knobSize)
-                width: knobSize,
-                height: knobSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  // rengini ayarladık, rengi çektikçe kırmızıya kayıyor
-                  color: knobColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3), // Güncellendi
-                      blurRadius: 5, // .r sildik
-                      offset: Offset(2, 2), // .w ve .h sildik
-                    ),
-                  ],
                 ),
-              ),
+                // Hareketli Joystick Topu
+                Transform.translate(
+                  // Transform.translate sayesinde hareketli yapıyoruz
+                  // onPanUpdatede hesapladığımız verileri buraya veriyoruz
+                  offset: offset,
+                  child: Container(
+                    // genişlik bilgileri (artık dinamik knobSize)
+                    width: knobSize,
+                    height: knobSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      // rengini ayarladık, rengi çektikçe kırmızıya kayıyor
+                      color: knobColor,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: 0.3,
+                          ), // Güncellendi
+                          blurRadius: 5, // .r sildik
+                          offset: Offset(2, 2), // .w ve .h sildik
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

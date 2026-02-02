@@ -112,7 +112,7 @@ class _BluetoothButtonState extends State<BluetoothButton> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  "Bir Cihaz Seç Kaptan",
+                  "Bir Cihaz Seçin",
                   style: TextStyle(
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,

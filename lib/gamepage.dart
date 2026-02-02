@@ -4,7 +4,8 @@ import 'background.dart';
 import 'joystick.dart';
 import 'camera_view.dart';
 import 'bluetooth_button.dart';
-import 'log_manager.dart';
+import 'agv_settings.dart';
+import 'lift_joystick.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -46,6 +47,13 @@ class _GamePageState extends State<GamePage> {
             ), //isCameraOn joystick kamera açıkken de gözüksün diye var, arka planı saydamlaştırıyorum onun sayesinde
           ),
 
+          // --- SOL ALT KÖŞE: LIFT JOYSTICK  ---
+          Positioned(
+            bottom: 10.h,
+            left: 40.w, // Sol tarafa yasladık
+            child: SafeArea(child: const LiftJoystick()),
+          ),
+
           // 2. Bluetooth Butonu
           Positioned(
             right: 30.w, //bt konumu ayarlı screenutil ile yapıldı
@@ -57,8 +65,8 @@ class _GamePageState extends State<GamePage> {
 
           // 3. Kamera Aç/Kapa Butonu
           Positioned(
-            left: 30.w, //kamera buton konumu ayarlı
-            top: 10.h,
+            right: 30.w, //kamera buton konumu ayarlı
+            top: 40.h,
             child: SafeArea(
               child: FloatingActionButton.small(
                 //.small ile buton boyutu küçültüldü
@@ -76,17 +84,23 @@ class _GamePageState extends State<GamePage> {
             ),
           ),
 
-          // 4.LOG BUTONU
+          //5. AYARLAR BUTONU
           Positioned(
-            top: 50.h,
+            top: 10.h,
             left: 30.w,
             child: SafeArea(
               child: FloatingActionButton.small(
-                heroTag: "btn_logs",
-                backgroundColor: Colors.black54,
-                child: const Icon(Icons.terminal, color: Colors.greenAccent),
+                heroTag: "btn_settings",
+                backgroundColor: Colors.grey[900],
+                child: Icon(Icons.settings, color: Colors.white, size: 20.r),
                 onPressed: () {
-                  LogManager.show(context);
+                  // AgvSettingsPage sayfasına git
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AgvSettingsPage(),
+                    ),
+                  );
                 },
               ),
             ),
