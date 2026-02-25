@@ -70,10 +70,7 @@ class _BluetoothButtonState extends State<BluetoothButton> {
       _showDeviceList();
     } else {
       // Israrla reddettiyse
-      _showSnack(
-        "İzin vermezsen Lift Ant'ı bulamayız kaptan! 🥺",
-        Colors.redAccent,
-      );
+      _showSnack("İzin vermezsen Lift Ant'ı bulamayız!", Colors.redAccent);
     }
   }
 
@@ -81,9 +78,13 @@ class _BluetoothButtonState extends State<BluetoothButton> {
   void _showDeviceList() async {
     try {
       // Native'den listeyi istiyoruz
-      final List<dynamic> devices = await channel.invokeMethod(
-        'getPairedDevices',
-      );
+      final List<dynamic> devices = await channel
+          .invokeMethod('getPairedDevices')
+          .onError((error, stackTrace) {
+            debugPrint('getPairedDevices Error: $error');
+            // Hata durumunda boş liste döndür
+            return <dynamic>[];
+          });
 
       if (!mounted) return;
 

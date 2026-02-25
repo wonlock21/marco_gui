@@ -36,17 +36,13 @@ class _JoystickState extends State<Joystick> {
   // Sadece son yönü tutuyoruz (Değişiklik kontrolü için)
   int _lastDir = 999;
 
-  //logları göndermek için de burda native kodlarındaki enum tarzı bir şey yaptım.
+  // Çaprazlar silindi. Sadece 4 ana yön ve Dur komutu kaldı.
   final Map<int, String> agvLabels = {
     -1: "DUR:0",
     0: "SAĞ:2", // Kotlin: RIGHT
-    1: "SAĞ_İLERİ:12", // Kotlin: UP_RIGHT
     2: "İLERİ:1", // Kotlin: UP
-    3: "SOL_İLERİ:41", // Kotlin: UP_LEFT
     4: "SOL:4", // Kotlin: LEFT
-    5: "SOL_GERİ:34", // Kotlin: DOWN_LEFT
     6: "GERİ:3", // Kotlin: DOWN
-    7: "SAĞ_GERİ:23", // Kotlin: DOWN_RIGHT
   };
 
   // nativeye gönderilecekleri ayarlıyoruz, kodumda native backend kullandım.
@@ -74,12 +70,17 @@ class _JoystickState extends State<Joystick> {
     }
     _lastSend = now;
 
-    // 3. YÖN HESABI (0-360 Derece -> 0-7 Yön)
-    // nativeye 0 ile 7 arasında sayı göndericem ona göre makinaya bunlar gönderilecek ve makina hareket edecek
+    // 3. YÖN HESABI (0-360 Derece -> Sadece 4 Ana Yön)
+    // 360 dereceyi 90 derecelik 4 dilime bölüyoruz.
     double angle = atan2(-o.dy, o.dx) * 180 / pi;
     if (angle < 0) angle += 360;
 
-    int direction = ((angle + 22.5) / 45).floor() % 8;
+    // 0: Sağ, 1: İleri, 2: Sol, 3: Geri (0, 1, 2, 3)
+    int quadrant = ((angle + 45) / 90).floor() % 4;
+
+    // Kotlin'deki indexlere uydurmak için 2 ile çarpıyoruz.
+    // (0->0:Sağ, 1->2:İleri, 2->4:Sol, 3->6:Geri)
+    int direction = quadrant * 2;
 
     // 4. DEĞİŞİKLİK KONTROLÜ
     // yön değişmediyse tekrar aynı komutu göndermeyecek
@@ -90,12 +91,13 @@ class _JoystickState extends State<Joystick> {
     _lastDir = direction;
     // Native tarafa sadece "dir" gönderiyoruz
 
-    // Log dosyasına gönderiyoruz komutları (GÜNCELLENDİ)
-    // Artık sadece sayı değil, sözlükteki ismini yazıyor (örn: SOL_İLERİ:41)
+    // Log dosyasına gönderiyoruz komutları
     String logMsg = agvLabels[direction] ?? "BİLİNMEYEN:$direction";
     LogManager.addLog(logMsg);
 
-    channel.invokeMethod('joystick', {'dir': direction});
+    channel.invokeMethod('joystick', {'dir': direction}).catchError((e) {
+      debugPrint('Joystick Native Hata Test Modundan Cikart: $e');
+    });
   }
 
   @override

@@ -20,13 +20,13 @@ import java.util.UUID
 enum class Direction(val flutterIdx: Int, val agvCommand: String) {
     STOP(-1, "0"),       // Durma komutu
     RIGHT(0, "2"),       // Sağ
-    UP_RIGHT(1, "12"),   // Sağ Çapraz
+//    UP_RIGHT(1, "12"),   // Sağ Çapraz
     UP(2, "1"),          // İleri
-    UP_LEFT(3, "41"),    // Sol Çapraz
+//    UP_LEFT(3, "41"),    // Sol Çapraz
     LEFT(4, "4"),        // Sol
-    DOWN_LEFT(5, "34"),  // Geri Sol
-    DOWN(6, "3"),        // Geri
-    DOWN_RIGHT(7, "23"); // Geri Sağ
+//    DOWN_LEFT(5, "34"),  // Geri Sol
+    DOWN(6, "3");        // Geri
+//    DOWN_RIGHT(7, "23"); // Geri Sağ
 
     companion object {
         // Flutter'dan gelen sayıyı (idx) alıp, yukarıdaki listeden doğru Enum'u bulan fonksiyon.
@@ -148,7 +148,7 @@ class MainActivity : FlutterActivity() {
         }
 
         // Arduino protokolüne uygun olarak veriyi paketliyoruz
-        val finalCommand = "<$commandStr>\n"
+        val finalCommand = "$commandStr\n"
 
         try {
             outStream?.write(finalCommand.toByteArray())
