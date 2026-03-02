@@ -20,13 +20,13 @@ import java.util.UUID
 enum class Direction(val flutterIdx: Int, val agvCommand: String) {
     STOP(-1, "0"),       // Durma komutu
     RIGHT(0, "2"),       // Sağ
-//    UP_RIGHT(1, "12"),   // Sağ Çapraz
+    UP_RIGHT(1, "12"),   // Sağ Çapraz
     UP(2, "1"),          // İleri
-//    UP_LEFT(3, "41"),    // Sol Çapraz
+    UP_LEFT(3, "41"),    // Sol Çapraz
     LEFT(4, "4"),        // Sol
-//    DOWN_LEFT(5, "34"),  // Geri Sol
-    DOWN(6, "3");        // Geri
-//    DOWN_RIGHT(7, "23"); // Geri Sağ
+    DOWN_LEFT(5, "34"),  // Geri Sol
+    DOWN(6, "3"),        // Geri
+    DOWN_RIGHT(7, "23"); // Geri Sağ
 
     companion object {
         // Flutter'dan gelen sayıyı (idx) alıp, yukarıdaki listeden doğru Enum'u bulan fonksiyon.
@@ -52,7 +52,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // Flutter'dan gelen çağrıları dinleyen kulak (MethodChannel)
+// Flutter'dan gelen çağrıları dinleyen kulak (MethodChannel)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
 
@@ -64,21 +64,6 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 
-                // SENARYO 5: Lift (Asansör) Kontrolü (YENİ EKLENDİ)
-                else if (call.method == "lift") {
-                    // Flutter'dan gelen aksiyonu al: 1 (Yukarı), -1 (Aşağı), 0 (Dur)
-                    val action = call.argument<Int>("action") ?: 0
-                    
-                    val commandToSend = when (action) {
-                        1 -> "8"      // Yukarı (Arduino kodu)
-                        -1 -> "9"     // Aşağı (Arduino kodu)
-                        else -> "0"   // Dur (Arduino kodu)
-                    }
-                    
-                    sendBluetoothCommand(commandToSend)
-                    result.success(null)
-                }
-
                 // SENARYO 2: Cihazları Listele 
                 else if (call.method == "getPairedDevices") {
                     if (bluetoothAdapter == null) {
@@ -90,6 +75,7 @@ class MainActivity : FlutterActivity() {
                         result.success(devices)
                     }
                 }
+                
                 // SENARYO 3: Seçilen Cihaza Bağlan 
                 else if (call.method == "connect") {
                     val address = call.argument<String>("address")
@@ -99,12 +85,34 @@ class MainActivity : FlutterActivity() {
                         result.error("NO_ADDRESS", "Adres gönderilmedi", null)
                     }
                 }
+                
                 // SENARYO 4: Bağlantıyı Kes
                 else if (call.method == "disconnect") {
                     closeConnection()
                     result.success(true)
                 }
-                // Bilinmeyen bir komut geldi
+
+                // SENARYO 5: Lift (Asansör) Kontrolü
+                else if (call.method == "lift") {
+                    val action = call.argument<Int>("action") ?: 0
+                    val commandToSend = when (action) {
+                        1 -> "9"      // Yukarı
+                        -1 -> "7"     // Aşağı
+                        else -> "8"   // Dur
+                    }
+                    sendBluetoothCommand(commandToSend)
+                    result.success(null)
+                }
+
+                // SENARYO 6: Otonom/Manuel Mod
+                else if (call.method == "setMode") {
+                    val isAuto = call.argument<Boolean>("isAuto") ?: false
+                    val commandToSend = if (isAuto) "otonom" else "manuel" 
+                    sendBluetoothCommand(commandToSend)
+                    result.success(null)
+                }
+                
+                // Bilinmeyen bir komut geldi (BU HER ZAMAN EN SONDA OLMALI)
                 else {
                     result.notImplemented()
                 }
@@ -152,6 +160,7 @@ class MainActivity : FlutterActivity() {
 
         try {
             outStream?.write(finalCommand.toByteArray())
+            outStream?.flush() // <--- SÖZ VERDİĞİM FLUSH BURADA. Tamponu anında boşaltır.
             android.util.Log.d("Bluetooth", "Komut gönderildi: $commandStr")
         } catch (e: IOException) {
             android.util.Log.e("Bluetooth", "Gönderme hatası: ${e.message}")

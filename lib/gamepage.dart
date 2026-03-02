@@ -6,6 +6,7 @@ import 'camera_view.dart';
 import 'bluetooth_button.dart';
 import 'agv_settings.dart';
 import 'lift_joystick.dart';
+import 'autonom_button.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -104,6 +105,13 @@ class _GamePageState extends State<GamePage> {
                 },
               ),
             ),
+          ),
+          // 6. OTONOM / MANUEL BUTONU ---
+          Positioned(
+            top: 30.h,
+            left: 0,
+            right: 0,
+            child: Center(child: const AutonomusButton()),
           ),
         ],
       ),
