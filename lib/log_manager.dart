@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class LogManager {
-  // --- VERİ KISMI (Logic) ---
   static final ValueNotifier<List<String>> logsNotifier = ValueNotifier([]);
+  static bool enabled = true;
 
   static void addLog(String message) {
+    if (!enabled) return;
     final now = DateTime.now();
     String time = "${now.hour}:${now.minute}:${now.second}";
 

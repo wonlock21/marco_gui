@@ -1,65 +1,95 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 import 'log_manager.dart';
+import 'services/agv_native_bridge.dart';
+import 'services/autonomy_controller.dart';
 
-class AutonomusButton extends StatefulWidget {
+class AutonomusButton extends StatelessWidget {
   const AutonomusButton({super.key});
-  @override
-  State<AutonomusButton> createState() => _AutonomusButtonState();
-}
 
-class _AutonomusButtonState extends State<AutonomusButton> {
-  static const channel = MethodChannel('agv/native');
-  bool isAuto = false;
-  void toggleMode() {
-    setState(() {
-      isAuto = !isAuto;
-    });
+  Future<void> _toggleMode(BuildContext context) async {
+    final autonomy = AutonomyController.instance;
+    final bridge = AgvNativeBridge.instance;
 
-    // Native tarafa mod bilgisini yolluyoruz
-    channel.invokeMethod('setMode', {'isAuto': isAuto});
-
-    // Log ekranına yazdır
-    LogManager.addLog(isAuto ? "MOD: OTONOM" : "MOD: MANUEL");
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: toggleMode,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-        decoration: BoxDecoration(
-          color: isAuto
-              ? Colors.greenAccent.withValues(alpha: 0.2)
-              : Colors.redAccent.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(15.r),
-          border: Border.all(
-            color: isAuto ? Colors.greenAccent : Colors.redAccent,
-            width: 2,
+    if (!autonomy.isAuto.value) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text(
+            'Otonom Mod',
+            style: TextStyle(color: Colors.white),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isAuto ? Icons.smart_toy : Icons.front_hand,
-              color: isAuto ? Colors.greenAccent : Colors.redAccent,
-              size: 24.r,
+          content: const Text(
+            'AGV otonom moda geçecek. Manuel sürüş joystick\'i kilitlenecek. Devam edilsin mi?',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('İptal'),
             ),
-            SizedBox(width: 10.w),
-            Text(
-              isAuto ? "OTONOM" : "MANUEL",
-              style: TextStyle(
-                color: isAuto ? Colors.greenAccent : Colors.redAccent,
-                fontWeight: FontWeight.bold,
-                fontSize: 16.sp,
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text(
+                'Otonom\'a Geç',
+                style: TextStyle(color: Colors.greenAccent),
               ),
             ),
           ],
         ),
-      ),
+      );
+      if (confirmed != true) return;
+    }
+
+    final newAuto = !autonomy.isAuto.value;
+    autonomy.setAuto(newAuto);
+    await bridge.setMode(newAuto);
+    LogManager.addLog(newAuto ? 'MOD: OTONOM' : 'MOD: MANUEL');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: AutonomyController.instance.isAuto,
+      builder: (context, isAuto, _) {
+        return GestureDetector(
+          onTap: () => _toggleMode(context),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            decoration: BoxDecoration(
+              color: isAuto
+                  ? Colors.greenAccent.withValues(alpha: 0.2)
+                  : Colors.redAccent.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(15.r),
+              border: Border.all(
+                color: isAuto ? Colors.greenAccent : Colors.redAccent,
+                width: 2,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isAuto ? Icons.smart_toy : Icons.front_hand,
+                  color: isAuto ? Colors.greenAccent : Colors.redAccent,
+                  size: 24.r,
+                ),
+                SizedBox(width: 10.w),
+                Text(
+                  isAuto ? 'OTONOM' : 'MANUEL',
+                  style: TextStyle(
+                    color: isAuto ? Colors.greenAccent : Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

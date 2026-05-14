@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart'; // <--- 1. IMPORT ET
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'gamepage.dart';
+import 'services/connection_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  ConnectionController.instance.init();
 
-  // Ekranı YAN (Landscape) moduna kilitle
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
