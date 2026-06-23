@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'services/agv_native_bridge.dart';
 
-// ---------------------------------------------------
-// 1. AKSESUAR TUŞLARI (Sadece Buzzer)
-// ---------------------------------------------------
+import 'services/agv_native_bridge.dart';
+import 'theme/agv_colors.dart';
+import 'theme/agv_decorations.dart';
+import 'theme/agv_typography.dart';
+
+/// Buzzer toggle butonu.
 class AccessoryButtons extends StatefulWidget {
   const AccessoryButtons({super.key});
 
@@ -17,45 +19,38 @@ class _AccessoryButtonsState extends State<AccessoryButtons> {
   bool isBuzzerOn = false;
 
   void toggleBuzzer() {
-    bool newState = !isBuzzerOn;
-    String cmdToSend = newState ? "B_AC" : "B_KAPA";
+    final newState = !isBuzzerOn;
+    final cmdToSend = newState ? 'B_AC' : 'B_KAPA';
 
     setState(() {
       isBuzzerOn = newState;
     });
 
     _bridge.sendAccessory(cmdToSend).catchError((e) {
-      debugPrint("Buzzer Hatası: $e");
-    });  }
+      debugPrint('Buzzer Hatası: $e');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final accent = isBuzzerOn ? AgvColors.buzzer : AgvColors.textMuted;
+
     return Container(
       padding: EdgeInsets.all(8.r),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(15.r),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: GestureDetector(
-        onTap: toggleBuzzer,
-        child: Container(
-          width: 45.r,
-          height: 45.r,
-          decoration: BoxDecoration(
-            color: isBuzzerOn
-                ? Colors.redAccent.withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.05),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isBuzzerOn ? Colors.redAccent : Colors.white24,
-              width: 2,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: toggleBuzzer,
+          borderRadius: BorderRadius.circular(999),
+          child: Ink(
+            width: 48.r,
+            height: 48.r,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: 0.14),
+              border: Border.all(color: accent, width: 1.5),
             ),
-          ),
-          child: Icon(
-            Icons.campaign,
-            color: isBuzzerOn ? Colors.redAccent : Colors.white54,
-            size: 22.r,
+            child: Icon(Icons.campaign, color: accent, size: 22.r),
           ),
         ),
       ),
@@ -63,9 +58,7 @@ class _AccessoryButtonsState extends State<AccessoryButtons> {
   }
 }
 
-// ---------------------------------------------------
-// 2. SİSTEM TUŞLARI (Harita & Senaryo - Aynen Kalıyor)
-// ---------------------------------------------------
+/// Üst panel: Harita / Senaryo aksiyon chip'leri.
 class FeatureButtons extends StatelessWidget {
   const FeatureButtons({super.key});
 
@@ -74,36 +67,53 @@ class FeatureButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildActionBtn(Icons.route, "Senaryo", Colors.purpleAccent),
-        SizedBox(width: 10.w),
-        _buildActionBtn(Icons.map, "Harita", Colors.orangeAccent),
+        _ActionChip(
+          icon: Icons.route,
+          label: 'SENARYO',
+          accent: AgvColors.info,
+        ),
+        SizedBox(width: 8.w),
+        _ActionChip(icon: Icons.map, label: 'HARİTA', accent: AgvColors.lift),
       ],
     );
   }
+}
 
-  Widget _buildActionBtn(IconData icon, String label, Color color) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(10.r),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 18.r),
-            SizedBox(width: 5.w),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 13.sp,
+class _ActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color accent;
+
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(10.r),
+        child: Ink(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+          decoration: AgvDecorations.statusChip(accent),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: accent, size: 16.r),
+              SizedBox(width: 6.w),
+              Text(
+                label,
+                style: AgvTypography.badge.copyWith(
+                  color: accent,
+                  fontSize: 10.sp,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

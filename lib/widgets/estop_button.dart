@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../log_manager.dart';
 import '../services/agv_native_bridge.dart';
+import '../theme/agv_colors.dart';
+import '../theme/agv_typography.dart';
 
 class EStopButton extends StatelessWidget {
   const EStopButton({super.key});
@@ -20,42 +22,50 @@ class EStopButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _onPressed,
-        borderRadius: BorderRadius.circular(12.r),
-        child: Ink(
-          width: 52.w,
-          height: 72.h,
-          decoration: BoxDecoration(
-            color: Colors.red.shade900,
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: Colors.redAccent, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.red.withValues(alpha: 0.45),
-                blurRadius: 12,
-                spreadRadius: 1,
+    return Semantics(
+      label: 'Acil durdurma',
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _onPressed,
+          borderRadius: BorderRadius.circular(14.r),
+          child: Ink(
+            width: 56.w,
+            height: 35.h,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFB91C1C), Color(0xFF7F1D1D)],
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.stop_circle, color: Colors.white, size: 26.r),
-              SizedBox(height: 2.h),
-              Text(
-                'E\nSTOP',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 9.sp,
-                  fontWeight: FontWeight.w900,
-                  height: 1.1,
+              borderRadius: BorderRadius.circular(14.r),
+              border: Border.all(color: AgvColors.danger, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: AgvColors.danger.withValues(alpha: 0.45),
+                  blurRadius: 14,
+                  spreadRadius: 1,
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.stop_circle, color: Colors.white, size: 26.r),
+                SizedBox(height: 2.h),
+                Text(
+                  'E-STOP',
+                  textAlign: TextAlign.center,
+                  style: AgvTypography.technical(
+                    size: 10.sp,
+                    color: Colors.white,
+                    weight: FontWeight.w900,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

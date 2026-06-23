@@ -3,18 +3,25 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../services/autonomy_controller.dart';
 import '../services/connection_controller.dart';
+import '../theme/agv_colors.dart';
+import '../theme/agv_typography.dart';
 
 enum ControlLockReason { connecting, disconnected, autonomy }
 
 /// Bağlantı ve otonom moda göre kontrol kilidi + görsel overlay.
+///
+/// [compact] true ise overlay sadece bir ikon rozeti gösterir
+/// (dar widget'lar için, örn. dikey lift joystick).
 class ControlLockOverlay extends StatefulWidget {
   final Widget child;
   final bool lockOnAutonomy;
+  final bool compact;
 
   const ControlLockOverlay({
     super.key,
     required this.child,
     this.lockOnAutonomy = false,
+    this.compact = false,
   });
 
   @override
@@ -93,42 +100,66 @@ class _ControlLockOverlayState extends State<ControlLockOverlay>
       case ControlLockReason.connecting:
         label = 'BAĞLANIYOR';
         icon = Icons.bluetooth_searching;
-        accent = Colors.amber;
+        accent = AgvColors.connecting;
       case ControlLockReason.disconnected:
         label = 'BAĞLANTI YOK';
         icon = Icons.bluetooth_disabled;
-        accent = Colors.redAccent;
+        accent = AgvColors.danger;
       case ControlLockReason.autonomy:
         label = 'OTONOM MOD';
         icon = Icons.smart_toy;
-        accent = Colors.greenAccent;
+        accent = AgvColors.autonomy;
     }
 
-    Widget overlay = Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: accent.withValues(alpha: 0.6), width: 1.5),
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: accent, size: 22.r),
-          SizedBox(height: 4.h),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: accent,
-              fontSize: 9.sp,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-            ),
+    final Widget content;
+    if (widget.compact) {
+      content = Center(
+        child: Container(
+          padding: EdgeInsets.all(8.r),
+          decoration: BoxDecoration(
+            color: AgvColors.background.withValues(alpha: 0.78),
+            shape: BoxShape.circle,
+            border: Border.all(color: accent.withValues(alpha: 0.85), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.35),
+                blurRadius: 8,
+                spreadRadius: 1,
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+          child: Icon(icon, color: accent, size: 20.r),
+        ),
+      );
+    } else {
+      content = Container(
+        decoration: BoxDecoration(
+          color: AgvColors.background.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: accent.withValues(alpha: 0.65), width: 1.5),
+        ),
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: accent, size: 22.r),
+            SizedBox(height: 4.h),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AgvTypography.technical(
+                size: 10.sp,
+                color: accent,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    Widget overlay = content;
 
     if (reason == ControlLockReason.connecting) {
       overlay = FadeTransition(

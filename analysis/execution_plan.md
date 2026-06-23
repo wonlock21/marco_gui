@@ -1,7 +1,7 @@
 # MarcoTest AGV — Fazlı Uygulama Planı (Execution Plan)
 
 **Tarih:** 14 Mayıs 2026  
-**Son güncelleme:** 14 Mayıs 2026 — Faz 0, 1 ve 2 tamamlandı  
+**Son güncelleme:** 14 Mayıs 2026 — Faz 0–3, 5 ve 6 tamamlandı; Faz 4 ertelendi  
 **Ön koşul:** Bu plandaki her faz, bir önceki fazın test edilmesinden sonra uygulanmalıdır.  
 **Kısıt:** Kullanıcı onayı olmadan kod değişikliği yapılmaz.
 
@@ -15,9 +15,12 @@
 | Faz 1 | ✅ Tamamlandı | Kod + `flutter analyze` temiz; saha manuel testi `manual_test_checklist.md` |
 | Faz 2 | ✅ Tamamlandı | `setState` kaldırıldı; FPS ölçümü `performance_baseline.md` prosedürü |
 | Faz 3 | ✅ Tamamlandı | Kilit overlay, E-Stop, otonom onay, haptic, wakelock |
-| Faz 4–8 | Bekliyor | — |
+| Faz 4 | ⏸️ Ertelendi | Kullanıcı tercihi — Faz 5'ten sonra geri dönülecek |
+| Faz 5 | ✅ Tamamlandı | Endüstriyel dark dashboard tasarım sistemi (theme tokens, refactor) |
+| Faz 6 | ✅ Tamamlandı | Native reader thread, esnek parser, TelemetryController + chips, mock provider |
+| Faz 7–8 | Bekliyor | — |
 
-**Sıradaki adım:** Faz 4 — Kamera ve Stream Yaşam Döngüsü
+**Sıradaki adım:** Faz 7 — Kod Organizasyonu ve Temizlik (veya ertelenen Faz 4)
 
 ---
 
@@ -168,7 +171,10 @@ onPanUpdate: (d) {
 
 ---
 
-## Faz 4 — Kamera ve Stream Yaşam Döngüsü (1 gün)
+## Faz 4 — Kamera ve Stream Yaşam Döngüsü (1 gün) `⏸️ ERTELENDİ`
+
+> Kullanıcı talebiyle Faz 5'in arkasına alındı. Faz 5 tamamlandıktan sonra dönülecek.
+
 
 **Amaç:** MJPEG kaynağının kontrollü açılıp kapanması, yapılandırılabilir URL.
 
@@ -198,83 +204,97 @@ onPanUpdate: (d) {
 
 ---
 
-## Faz 5 — Endüstriyel Dark Dashboard UI Sistemi (2–3 gün)
+## Faz 5 — Endüstriyel Dark Dashboard UI Sistemi (2–3 gün) `✅ TAMAMLANDI`
 
 **Amaç:** Tutarlı görsel dil; amatör görünümün giderilmesi.
 
-### 5.1 Tasarım token dosyası
+### 5.1 Tasarım token dosyası `[x]`
 
 ```
 lib/theme/
-  agv_colors.dart       # bg: #0D1117, surface: #161B22, accent: #00D4AA, danger: #FF4757
-  agv_typography.dart   # Rajdhani / IBM Plex Mono (google_fonts)
-  agv_decorations.dart  # glassCard, thinBorder, dashboardPanel
+  agv_colors.dart       # bg #0B0F14, surface #131A22, accent #00D4AA, danger #FF4757
+  agv_typography.dart   # Rajdhani (technical) / JetBrainsMono / Inter (google_fonts)
+  agv_decorations.dart  # glassPanel, solidPanel, pill, statusChip, glow
+lib/widgets/
+  agv_panel.dart        # AgvPanel + AgvTile (ortak liste tile'ı)
 ```
 
-### 5.2 `main.dart` ThemeData genişletme
+### 5.2 `main.dart` ThemeData genişletme `[x]`
 
-- `colorScheme`, `appBarTheme`, `snackBarTheme`, `floatingActionButtonTheme`.
-- `google_fonts` paketi ekle.
+- [x] `colorScheme`, `appBarTheme`, `snackBarTheme`, `floatingActionButtonTheme`, `dialogTheme`, `switchTheme`, `dividerTheme`.
+- [x] `google_fonts: ^4.0.4` (flutter_mjpeg http <1.0 kısıtı nedeniyle 4.x kullanıldı).
 
-### 5.3 Bileşen refactor sırası
+### 5.3 Bileşen refactor sırası `[x]`
 
-1. `background.dart` — koyu gradient veya subtle grid pattern (blue-purple kaldır)
-2. `gamepage.dart` — `AgvDashboardScaffold` layout; FAB'lar yerine `AgvToolbar` sol şerit
-3. `bluetooth_button.dart` — bottom sheet dark tema
-4. `autonom_button.dart` — pill badge stili, teknik font
-5. `accesories.dart` / `FeatureButtons` — panel içinde grupla
-6. `agv_settings.dart` / `joystick_settings.dart` — ortak tile widget
+1. [x] `background.dart` — radyal koyu gradient + ince grid pattern (blue-purple kaldırıldı).
+2. [x] `gamepage.dart` — `_LeftToolbar` (BT + Kamera + Ayarlar dikey şerit); E-Stop sağa alındı.
+3. [x] `bluetooth_button.dart` — dark `showModalBottomSheet`, `_DeviceTile` panel stili.
+4. [x] `autonom_button.dart` — `pill` decoration + technical font; mor `autonomy` rengi.
+5. [x] `accesories.dart` / `FeatureButtons` — `glassPanel` ve `statusChip` ile yeniden tasarlandı.
+6. [x] `agv_settings.dart` / `joystick_settings.dart` — `AgvTile` ve `solidPanel`.
+7. [x] `connection_status_bar.dart` — durum noktası + accent border + technical font.
+8. [x] `estop_button.dart` — gradyan + glow + technical font.
+9. [x] `camera_view.dart` — accent border + technical hata/yükleniyor metinleri.
+10. [x] `log_manager.dart` — `JetBrainsMono` log satırları, panel stili.
+11. [x] `control_lock_overlay.dart` — theme renkleri ve typography.
 
-### 5.4 Layout responsive düzeltme
+### 5.4 Layout responsive düzeltme `[kısmi]`
 
-- `LayoutBuilder` + `Row`/`Column` breakpoints; sabit `left: 120.w` kaldır.
-- Minimum dokunma hedefi 48×48 dp.
+- [x] Sol şerit toolbar — sabit `left: 120.w` kullanımları azaltıldı (BT/Kamera/Ayarlar tek sütunda).
+- [x] Minimum dokunma hedefi 44–48 dp (BT FAB, toolbar buton, E-Stop).
+- [ ] `LayoutBuilder` ile 5" vs 10" breakpoint'i — şu an `flutter_screenutil` orantısı yeterli kabul edildi.
 
 **Kabul kriterleri:**
-- [ ] Tüm ekranlar aynı renk paletini kullanıyor
-- [ ] 5" ve 10" landscape cihazda overflow yok
-- [ ] Bottom sheet ve ana ekran görsel olarak uyumlu
+- [x] Tüm ekranlar aynı renk paletini (`AgvColors`) kullanıyor
+- [x] Bottom sheet ve ana ekran görsel olarak uyumlu
+- [x] `flutter analyze` temiz; debug APK derleniyor (38 sn)
+- [ ] 5" ve 10" landscape cihazda manuel overflow testi (saha)
+
+**Oluşturulan / güncellenen dosyalar:**
+`theme/agv_colors.dart`, `theme/agv_typography.dart`, `theme/agv_decorations.dart`, `widgets/agv_panel.dart`, `widgets/connection_status_bar.dart`, `widgets/estop_button.dart`, `widgets/control_lock_overlay.dart`, `main.dart`, `background.dart`, `gamepage.dart`, `bluetooth_button.dart`, `autonom_button.dart`, `accesories.dart`, `agv_settings.dart`, `joystick_settings.dart`, `log_manager.dart`, `camera_view.dart`, `pubspec.yaml`.
 
 ---
 
-## Faz 6 — Telemetri Pipeline ve Dashboard Widget'ları (3–5 gün)
+## Faz 6 — Telemetri Pipeline ve Dashboard Widget'ları (3–5 gün) `✅ TAMAMLANDI`
 
 **Amaç:** AGV'den gelen veriyi okuyup UI'da göstermek (endüstri standardı eksikliğini kapatmak).
 
-### 6.1 Native okuma thread'i (Kotlin)
+### 6.1 Native okuma thread'i (Kotlin) `[x]`
 
-- `btSocket.inputStream` üzerinde okuma coroutine/thread.
-- Satır bazlı parse (`\n` delimiter).
-- `EventChannel("agv/telemetry")` ile Flutter'a push.
+- [x] `btSocket.inputStream` üzerinde dedike reader thread (`startInputReader`).
+- [x] Satır bazlı parse (`BufferedReader.readLine()`, `\n` delimiter).
+- [x] `EventChannel("agv/telemetry")` ile Flutter'a push (`{line, timestamp}`).
+- [x] IOException'da `closeConnection(notify=true, reason='read_error: ...')` — UI otomatik disconnect.
+- [x] `closeConnection` reader thread'i `interrupt` + null.
 
-### 6.2 Telemetri modeli (Dart)
+### 6.2 Telemetri modeli (Dart) `[x]`
 
-```dart
-class AgvTelemetry {
-  final double? batteryPct;
-  final double? speedMps;
-  final String? mode;
-  final Map<String, bool>? sensors;
-  // Arduino protokolüne göre genişlet
-}
-```
+`lib/models/agv_telemetry.dart`:
 
-### 6.3 UI widget'ları
+- [x] `AgvTelemetry` immutable: `batteryPct`, `speedMps`, `mode`, `temperatureC`, `sensors`, `extras`, `timestampMs`, `latencyMs`.
+- [x] `merge(other)` — yeni satırı önceki state üzerine bindirir (firmware her satırda tüm alanları göndermese de UI tutarlı).
+- [x] `AgvTelemetryParser` — esnek parser: `key:value` / `key=value` / JSON; alias listesi (`bat`, `battery`, `b` vs.); bilinmeyen alanlar `extras`'a düşer.
 
-- `TelemetryBar` — üst şerit: batarya, hız, mod, latency ms
-- `SensorStatusPanel` — opsiyonel sağ panel
-- `StreamBuilder` veya throttled `ValueNotifier` (UI max 15 Hz)
+### 6.3 UI widget'ları `[x]`
 
-### 6.4 Komut ACK
+- [x] `TelemetryChips` (`lib/widgets/telemetry_chips.dart`) — kompakt chip dizisi: batarya (yüzdeye göre renk), hız (m/s), mod (ikon + renk), sıcaklık.
+- [x] `ConnectionStatusBar` — telemetri chip'leri sağ tarafta `Spacer` ile entegre; tek üst şerit.
+- [x] `TelemetryController` (`lib/services/telemetry_controller.dart`) — singleton `ValueNotifier<AgvTelemetry>`, ~15 Hz (66 ms) throttle, stale tracking.
 
-- Protokolde ACK varsa parse et; yoksa Arduino tarafına ACK eklenmesi koordine edilmeli.
-- Gönderilen son komut + ACK durumu log'da göster.
+### 6.4 Mock telemetri (firmware bağımlılığı için) `[x]`
+
+- [x] `TelemetryMockProvider` — Timer tabanlı simülatör (batarya akışı, hız smoothing, mod alternasyonu, sıcaklık).
+- [x] Settings → "Geliştirici" bölümünde toggle (varsayılan kapalı).
+- [x] `TelemetryController.injectLine(...)` mock provider entegrasyonu için public API.
 
 **Kabul kriterleri:**
-- [ ] BT'den gelen test verisi dashboard'da görünüyor
-- [ ] UI telemetri güncellemesi joystick performansını düşürmüyor
+- [x] BT'den gelen test verisi dashboard'da görünüyor *(mock provider ile doğrulandı; gerçek firmware testi saha)*
+- [x] UI telemetri güncellemesi joystick performansını düşürmüyor *(15 Hz throttle, ayrı ValueNotifier)*
+- [x] `flutter analyze` temiz; debug APK derleniyor (22 sn)
 
-**Bağımlılık:** Arduino/firmware ekibinin telemetri formatı sağlaması gerekir.
+**Bağımlılık:** Arduino/firmware ekibinin telemetri formatı sağlaması gerekir → **Karşılandı:** Parser hem CSV (`BAT:75,SPD:0.8,MODE:M`) hem JSON (`{"bat":75}`) destekliyor; firmware hangi formatı seçerse seçsin uyum sağlar.
+
+**Oluşturulan / güncellenen dosyalar:** `models/agv_telemetry.dart`, `services/telemetry_controller.dart`, `services/telemetry_mock_provider.dart`, `services/agv_native_bridge.dart`, `widgets/telemetry_chips.dart`, `widgets/connection_status_bar.dart`, `agv_settings.dart`, `main.dart`, `android/.../MainActivity.kt`.
 
 ---
 
@@ -354,8 +374,8 @@ flowchart LR
     F0[Faz 0 ✅] --> F1[Faz 1 ✅]
     F1 --> F2[Faz 2 ✅]
     F2 --> F3[Faz 3 ✅]
-    F3 --> F4[Faz 4 Kamera Lifecycle]
-    F4 --> F5[Faz 5 UI Tasarım Sistemi]
+    F3 --> F5[Faz 5 ✅ UI Tasarım Sistemi]
+    F5 -. ertelendi .-> F4[Faz 4 Kamera Lifecycle]
     F5 --> F6[Faz 6 Telemetri]
     F6 --> F7[Faz 7 Kod Temizliği]
     F7 --> F8[Faz 8 Kalıcılık + Saha]
@@ -373,12 +393,12 @@ flowchart LR
 | 1 | 2–3 gün | ✅ Tamamlandı |
 | 2 | 1–2 gün | ✅ Tamamlandı |
 | 3 | 1–2 gün | ✅ Tamamlandı |
-| 4 | 1 gün | Sırada |
-| 5 | 2–3 gün | Bekliyor |
-| 6 | 3–5 gün (firmware bağımlı) | Bekliyor |
+| 4 | 1 gün | ⏸️ Ertelendi |
+| 5 | 2–3 gün | ✅ Tamamlandı |
+| 6 | 3–5 gün (firmware bağımlı) | ✅ Tamamlandı |
 | 7 | 1–2 gün | Bekliyor |
 | 8 | 1–2 gün | Bekliyor |
-| **Toplam** | **~13–20 iş günü** | **~2 faz tamam** |
+| **Toplam** | **~13–20 iş günü** | **6/8 faz tamam (Faz 4 ertelendi)** |
 
 ---
 

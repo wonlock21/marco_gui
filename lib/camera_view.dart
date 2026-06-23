@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mjpeg/flutter_mjpeg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'theme/agv_colors.dart';
+import 'theme/agv_typography.dart';
+
 class CameraView extends StatelessWidget {
-  // IP adresini bu değişkende tutuyoruz
   final String streamUrl;
 
   const CameraView({super.key, required this.streamUrl});
@@ -11,53 +13,73 @@ class CameraView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // Kenarlıklar ve gölgelendirme (Responsive yapıldı)
       decoration: BoxDecoration(
-        color: Colors.black,
-        border: Border.all(color: Colors.blueAccent, width: 2.w),
+        color: AgvColors.background,
+        border: Border.all(color: AgvColors.accent, width: 1.5),
         borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
-            blurRadius: 10.r,
-            spreadRadius: 2.r,
+            color: AgvColors.accent.withValues(alpha: 0.25),
+            blurRadius: 14,
+            spreadRadius: 1,
           ),
         ],
       ),
-      // Mjpeg paketi burada çalışıyor
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(11.r),
         child: Mjpeg(
           isLive: true,
-          stream: streamUrl, // Dışarıdan gelen IP buraya giriyor
-          // YÜKLENİYORSA:
-          loading: (context) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircularProgressIndicator(color: Colors.blueAccent),
-                SizedBox(height: 10.h),
-                const Text(
-                  "Sinyal Aranıyor...",
-                  style: TextStyle(color: Colors.white),
-                ),
-              ],
+          stream: streamUrl,
+          loading: (context) => Container(
+            color: AgvColors.background,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(color: AgvColors.accent),
+                  SizedBox(height: 10.h),
+                  Text(
+                    'SİNYAL ARANIYOR...',
+                    style: AgvTypography.technical(
+                      size: 11.sp,
+                      color: AgvColors.textSecondary,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-
-          // HATA VARSA (Bağlanamadıysa):
-          error: (context, error, stack) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.signal_wifi_off, color: Colors.red, size: 40.r),
-                SizedBox(height: 10.h),
-                Text(
-                  "Bağlantı Yok\nIP: $streamUrl",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
-              ],
+          error: (context, error, stack) => Container(
+            color: AgvColors.background,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.signal_wifi_off,
+                    color: AgvColors.danger,
+                    size: 36.r,
+                  ),
+                  SizedBox(height: 8.h),
+                  Text(
+                    'BAĞLANTI YOK',
+                    style: AgvTypography.technical(
+                      size: 12.sp,
+                      color: AgvColors.danger,
+                      letterSpacing: 1.8,
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    streamUrl,
+                    style: AgvTypography.mono(
+                      size: 10.sp,
+                      color: AgvColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

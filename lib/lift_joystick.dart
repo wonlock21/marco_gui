@@ -116,7 +116,7 @@ class _LiftJoystickState extends State<LiftJoystick> {
           ),
         );
 
-        return ControlLockOverlay(child: lift);
+        return ControlLockOverlay(compact: true, child: lift);
       },
     );
   }

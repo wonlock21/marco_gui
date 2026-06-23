@@ -9,9 +9,17 @@ class AgvNativeBridge {
 
   static const _methodChannel = MethodChannel('agv/native');
   static const _connectionEventChannel = EventChannel('agv/connection');
+  static const _telemetryEventChannel = EventChannel('agv/telemetry');
 
   static Stream<Map<String, dynamic>> get connectionEvents =>
       _connectionEventChannel.receiveBroadcastStream().map(
+        (event) => Map<String, dynamic>.from(event as Map),
+      );
+
+  /// AGV'den gelen ham telemetri satırları.
+  /// Her event: `{'line': String, 'timestamp': int}`
+  static Stream<Map<String, dynamic>> get telemetryEvents =>
+      _telemetryEventChannel.receiveBroadcastStream().map(
         (event) => Map<String, dynamic>.from(event as Map),
       );
 
