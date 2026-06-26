@@ -61,10 +61,10 @@ class AutonomusButton extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: () => _toggleMode(context),
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(10.r),
             child: Ink(
-              padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 9.h),
-              decoration: AgvDecorations.pill(accent: accent),
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: AgvDecorations.statusChip(accent),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -73,10 +73,13 @@ class AutonomusButton extends StatelessWidget {
                     color: accent,
                     size: 18.r,
                   ),
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 6.w),
                   Text(
                     isAuto ? 'OTONOM' : 'MANUEL',
-                    style: AgvTypography.badge.copyWith(color: accent),
+                    style: AgvTypography.badge.copyWith(
+                      color: accent,
+                      fontSize: 10.sp,
+                    ),
                   ),
                 ],
               ),

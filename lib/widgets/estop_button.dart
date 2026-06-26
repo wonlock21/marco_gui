@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../log_manager.dart';
 import '../services/agv_native_bridge.dart';
+import '../services/mission_controller.dart';
 import '../theme/agv_colors.dart';
 import '../theme/agv_typography.dart';
 
@@ -18,6 +19,7 @@ class EStopButton extends StatelessWidget {
     } catch (e) {
       debugPrint('E-Stop hatası: $e');
     }
+    MissionController.instance.onEmergencyStop();
   }
 
   @override

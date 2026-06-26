@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../services/admin_controller.dart';
 import '../services/autonomy_controller.dart';
 import '../services/connection_controller.dart';
 import '../theme/agv_colors.dart';
@@ -47,14 +48,22 @@ class _ControlLockOverlayState extends State<ControlLockOverlay>
     super.dispose();
   }
 
-  ControlLockReason? _resolveLock(AgvConnectionState conn, bool isAuto) {
-    if (conn.status == AgvConnectionStatus.connecting) {
-      return ControlLockReason.connecting;
+  ControlLockReason? _resolveLock(
+    AgvConnectionState conn,
+    bool isAuto,
+    bool isAdmin,
+  ) {
+    // Admin modda BT bağlantı kilitleri atlanır.
+    if (!isAdmin) {
+      if (conn.status == AgvConnectionStatus.connecting) {
+        return ControlLockReason.connecting;
+      }
+      if (conn.status == AgvConnectionStatus.disconnected ||
+          conn.status == AgvConnectionStatus.error) {
+        return ControlLockReason.disconnected;
+      }
     }
-    if (conn.status == AgvConnectionStatus.disconnected ||
-        conn.status == AgvConnectionStatus.error) {
-      return ControlLockReason.disconnected;
-    }
+    // Otonom kilidi admin moddan etkilenmez.
     if (widget.lockOnAutonomy && isAuto) {
       return ControlLockReason.autonomy;
     }
@@ -63,27 +72,32 @@ class _ControlLockOverlayState extends State<ControlLockOverlay>
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<AgvConnectionState>(
-      valueListenable: ConnectionController.instance.state,
-      builder: (context, conn, _) {
-        return ValueListenableBuilder<bool>(
-          valueListenable: AutonomyController.instance.isAuto,
-          builder: (context, isAuto, _) {
-            final lock = _resolveLock(conn, isAuto);
-            final isLocked = lock != null;
+    return ValueListenableBuilder<bool>(
+      valueListenable: AdminController.instance.isAdmin,
+      builder: (context, isAdmin, _) {
+        return ValueListenableBuilder<AgvConnectionState>(
+          valueListenable: ConnectionController.instance.state,
+          builder: (context, conn, _) {
+            return ValueListenableBuilder<bool>(
+              valueListenable: AutonomyController.instance.isAuto,
+              builder: (context, isAuto, _) {
+                final lock = _resolveLock(conn, isAuto, isAdmin);
+                final isLocked = lock != null;
 
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                IgnorePointer(
-                  ignoring: isLocked,
-                  child: Opacity(
-                    opacity: isLocked ? 0.4 : 1.0,
-                    child: widget.child,
-                  ),
-                ),
-                if (lock != null) _buildOverlay(lock),
-              ],
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IgnorePointer(
+                      ignoring: isLocked,
+                      child: Opacity(
+                        opacity: isLocked ? 0.4 : 1.0,
+                        child: widget.child,
+                      ),
+                    ),
+                    if (lock != null) _buildOverlay(lock),
+                  ],
+                );
+              },
             );
           },
         );
@@ -106,8 +120,8 @@ class _ControlLockOverlayState extends State<ControlLockOverlay>
         icon = Icons.bluetooth_disabled;
         accent = AgvColors.danger;
       case ControlLockReason.autonomy:
-        label = 'OTONOM MOD';
-        icon = Icons.smart_toy;
+        label = 'OTO. KİLİTLİ';
+        icon = Icons.lock_outline;
         accent = AgvColors.autonomy;
     }
 

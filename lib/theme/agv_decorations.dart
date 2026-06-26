@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
 import 'agv_colors.dart';
 
 /// Yeniden kullanılabilir BoxDecoration ve panel token'ları.
@@ -24,10 +23,7 @@ class AgvDecorations {
   }
 
   /// Daha belirgin panel (ayarlar tile'ları için).
-  static BoxDecoration solidPanel({
-    Color? borderColor,
-    double radius = 14,
-  }) {
+  static BoxDecoration solidPanel({Color? borderColor, double radius = 14}) {
     return BoxDecoration(
       color: AgvColors.surfaceElevated,
       borderRadius: BorderRadius.circular(radius.r),
@@ -61,7 +57,12 @@ class AgvDecorations {
   }
 
   /// Hafif glow (yalnızca kritik elementler için kullan).
-  static List<BoxShadow> glow(Color color, {double blur = 14, double spread = 0.5, double alpha = 0.35}) {
+  static List<BoxShadow> glow(
+    Color color, {
+    double blur = 14,
+    double spread = 0.5,
+    double alpha = 0.35,
+  }) {
     return [
       BoxShadow(
         color: color.withValues(alpha: alpha),

@@ -70,7 +70,7 @@ class TelemetryMockProvider {
       _mode = _mode == 'M' ? 'A' : 'M';
     }
 
-    final tempC = 28 + _random.nextDouble() * 4;
+    final tempC = 30 + _random.nextDouble() * 4;
 
     final line =
         'BAT:${_battery.toStringAsFixed(1)},'

@@ -68,8 +68,8 @@ class FeatureButtons extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _ActionChip(
-          icon: Icons.route,
-          label: 'SENARYO',
+          icon: Icons.assignment,
+          label: 'GÖREV',
           accent: AgvColors.info,
         ),
         SizedBox(width: 8.w),
@@ -103,7 +103,7 @@ class _ActionChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: accent, size: 16.r),
+              Icon(icon, color: accent, size: 18.r),
               SizedBox(width: 6.w),
               Text(
                 label,

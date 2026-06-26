@@ -12,70 +12,56 @@ class CameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
+    return Mjpeg(
+      isLive: true,
+      stream: streamUrl,
+      loading: (context) => Container(
         color: AgvColors.background,
-        border: Border.all(color: AgvColors.accent, width: 1.5),
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: AgvColors.accent.withValues(alpha: 0.25),
-            blurRadius: 14,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(11.r),
-        child: Mjpeg(
-          isLive: true,
-          stream: streamUrl,
-          loading: (context) => Container(
-            color: AgvColors.background,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(color: AgvColors.accent),
-                  SizedBox(height: 10.h),
-                  Text(
-                    'SİNYAL ARANIYOR...',
-                    style: AgvTypography.technical(
-                      size: 11.sp,
-                      color: AgvColors.textSecondary,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ],
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(color: AgvColors.accent),
+              SizedBox(height: 10.h),
+              Text(
+                'SİNYAL ARANIYOR...',
+                style: AgvTypography.technical(
+                  size: 11.sp,
+                  color: AgvColors.textSecondary,
+                  letterSpacing: 2,
+                ),
               ),
-            ),
+            ],
           ),
-          error: (context, error, stack) => Container(
-            color: AgvColors.background,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+        ),
+      ),
+      error: (context, error, stack) => Container(
+        color: AgvColors.background.withValues(alpha: 0.55),
+        child: Align(
+          alignment: Alignment.topRight,
+          child: Padding(
+            padding: EdgeInsets.all(8.r),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: AgvColors.surface.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(
+                  color: AgvColors.danger.withValues(alpha: 0.6),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.signal_wifi_off,
-                    color: AgvColors.danger,
-                    size: 36.r,
-                  ),
-                  SizedBox(height: 8.h),
+                  Icon(Icons.videocam_off, color: AgvColors.danger, size: 12.r),
+                  SizedBox(width: 5.w),
                   Text(
-                    'BAĞLANTI YOK',
+                    'Kamera yok',
                     style: AgvTypography.technical(
-                      size: 12.sp,
+                      size: 9.sp,
                       color: AgvColors.danger,
-                      letterSpacing: 1.8,
-                    ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    streamUrl,
-                    style: AgvTypography.mono(
-                      size: 10.sp,
-                      color: AgvColors.textMuted,
+                      letterSpacing: 0.8,
                     ),
                   ),
                 ],

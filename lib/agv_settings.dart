@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'joystick_settings.dart';
 import 'log_manager.dart';
+import 'services/admin_controller.dart';
 import 'services/agv_native_bridge.dart';
 import 'services/connection_controller.dart';
 import 'services/telemetry_mock_provider.dart';
@@ -123,6 +124,21 @@ class _AgvSettingsPageState extends State<AgvSettingsPage> {
               SizedBox(height: 24.h),
               _sectionLabel('GELİŞTİRİCİ'),
               SizedBox(height: 8.h),
+              // Admin modu toggle
+              ValueListenableBuilder<bool>(
+                valueListenable: AdminController.instance.isAdmin,
+                builder: (context, adminOn, _) {
+                  return _SwitchTile(
+                    icon: Icons.shield,
+                    title: 'Admin Modu',
+                    subtitle: 'Bluetooth bağlı olmadan joystick kısıtlamalarını kaldır',
+                    value: adminOn,
+                    activeColor: AgvColors.warning,
+                    onChanged: (val) => _onAdminToggle(context, val),
+                  );
+                },
+              ),
+              SizedBox(height: 8.h),
               ValueListenableBuilder<bool>(
                 valueListenable: TelemetryMockProvider.instance.enabled,
                 builder: (context, mockOn, _) {
@@ -157,6 +173,47 @@ class _AgvSettingsPageState extends State<AgvSettingsPage> {
       padding: EdgeInsets.only(left: 4.w),
       child: Text(text, style: AgvTypography.sectionLabel),
     );
+  }
+
+  Future<void> _onAdminToggle(BuildContext context, bool enable) async {
+    if (!enable) {
+      // Kapatmak için onay gerekmez.
+      AdminController.instance.setAdmin(false);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.shield, color: AgvColors.warning, size: 20),
+            SizedBox(width: 8),
+            const Text('Admin Modunu Aç'),
+          ],
+        ),
+        content: const Text(
+          'Admin modu Bluetooth bağlantısı olmadan joystick kısıtlamalarını kaldırır.\n\n'
+          'AGV bağlı değilken komutlar gönderilemez; bu mod yalnızca UI ve mekanik test içindir.\n\n'
+          'Devam etmek istiyor musun?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('İPTAL'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AgvColors.warning),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('AKTİF ET'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      AdminController.instance.setAdmin(true);
+    }
   }
 }
 

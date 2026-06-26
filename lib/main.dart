@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'gamepage.dart';
 import 'services/connection_controller.dart';
+import 'services/mission_controller.dart';
 import 'services/telemetry_controller.dart';
 import 'theme/agv_colors.dart';
 import 'theme/agv_typography.dart';
@@ -12,6 +13,15 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   ConnectionController.instance.init();
   TelemetryController.instance.init();
+  MissionController.instance.init();
+
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,

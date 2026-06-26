@@ -13,6 +13,8 @@ import 'lift_joystick.dart';
 import 'theme/agv_colors.dart';
 import 'widgets/connection_status_bar.dart';
 import 'widgets/estop_button.dart';
+import 'widgets/last_message_bar.dart';
+import 'widgets/status_cards.dart';
 import 'widgets/telemetry_chips.dart';
 
 /// Üst kart şeridinin yaklaşık yüksekliği (chip'lerin oturduğu bant).
@@ -28,6 +30,7 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   bool isCameraOn = false;
+  bool _showStatusCards = false;
 
   @override
   void initState() {
@@ -71,7 +74,7 @@ class _GamePageState extends State<GamePage> {
           // KATMAN 2b — Telemetri chip'leri (sağ üst, bağımsız)
           Positioned(
             top: 0.h,
-            right: 54.w,
+            right: 24.w,
             child: const SafeArea(bottom: false, child: TelemetryChips()),
           ),
 
@@ -116,11 +119,49 @@ class _GamePageState extends State<GamePage> {
             child: const SafeArea(child: EStopButton()),
           ),
 
-          // KATMAN 6 — Lift joystick (sol-orta, toolbar'ın sağında)
+          // KATMAN 5b — Durum kartları (merkez, joystick'ler arası boşluk)
+          if (_showStatusCards)
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 160.w,
+                  right: 160.w,
+                  top: topOffset + 4.h,
+                  bottom: 8.h,
+                ),
+                child: const Align(
+                  alignment: Alignment(0, 0.75),
+                  child: StatusCards(),
+                ),
+              ),
+            ),
+
+          // KATMAN 5c — Son mesaj şeridi (sol alt)
+          Positioned(
+            bottom: -8.h,
+            left: 18.w,
+            child: const SafeArea(child: LastMessageBar()),
+          ),
+
+          // KATMAN 6 — Lift joystick + toggle butonu (sol-orta)
           Positioned(
             left: 98.w,
             bottom: 12.h,
-            child: const SafeArea(child: LiftJoystick()),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Toggle butonu — lift joystick'in hemen üstünde
+                  _StatusToggleButton(
+                    active: _showStatusCards,
+                    onTap: () =>
+                        setState(() => _showStatusCards = !_showStatusCards),
+                  ),
+                  SizedBox(height: 6.h),
+                  const LiftJoystick(),
+                ],
+              ),
+            ),
           ),
 
           // KATMAN 7 — Ana sürüş joystick'i (sağ-orta, E-Stop'un solunda)
@@ -178,6 +219,40 @@ class _LeftRail extends StatelessWidget {
         ),
         // Alt: aksesuar (buzzer)
       ],
+    );
+  }
+}
+
+/// Lift joystick'in üzerinde duran kompakt durum kartı toggle butonu.
+class _StatusToggleButton extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+
+  const _StatusToggleButton({required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? AgvColors.info : AgvColors.textMuted;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          width: 52.r,
+          height: 34.r,
+          decoration: BoxDecoration(
+            color: AgvColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: color.withValues(alpha: 0.7), width: 1.2),
+          ),
+          child: Icon(
+            active ? Icons.dashboard : Icons.dashboard_outlined,
+            color: color,
+            size: 18.r,
+          ),
+        ),
+      ),
     );
   }
 }
