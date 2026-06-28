@@ -10,15 +10,17 @@ import 'bluetooth_button.dart';
 import 'camera_view.dart';
 import 'joystick.dart';
 import 'lift_joystick.dart';
+import 'models/app_tab.dart';
 import 'theme/agv_colors.dart';
 import 'widgets/connection_status_bar.dart';
 import 'widgets/estop_button.dart';
 import 'widgets/last_message_bar.dart';
+import 'widgets/map_panel.dart';
+import 'widgets/mission_panel.dart';
 import 'widgets/status_cards.dart';
 import 'widgets/telemetry_chips.dart';
 
 /// Üst kart şeridinin yaklaşık yüksekliği (chip'lerin oturduğu bant).
-/// Kamera dolgusu ve diğer üst elemanlar bu değere göre hizalanır.
 const double _kTopBandHeight = 36;
 
 class GamePage extends StatefulWidget {
@@ -31,6 +33,15 @@ class GamePage extends StatefulWidget {
 class _GamePageState extends State<GamePage> {
   bool isCameraOn = false;
   bool _showStatusCards = false;
+  AppTab _activeTab = AppTab.manuel;
+
+  void _onTabChange(AppTab tab) {
+    setState(() {
+      _activeTab = tab;
+      // Görev/Harita sekmelerine geçince durum kartlarını kapat.
+      if (tab != AppTab.manuel) _showStatusCards = false;
+    });
+  }
 
   @override
   void initState() {
@@ -46,15 +57,15 @@ class _GamePageState extends State<GamePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Üst chip'lerle aynı bantta duracak elemanlar için Y koordinatı.
     final topOffset = _kTopBandHeight + 8.h;
+    final isManuel = _activeTab == AppTab.manuel;
 
     return Scaffold(
       backgroundColor: AgvColors.background,
       body: Stack(
         children: [
           // KATMAN 1 — Zemin / Kamera
-          if (isCameraOn)
+          if (isCameraOn && isManuel)
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.only(top: _kTopBandHeight),
@@ -78,7 +89,7 @@ class _GamePageState extends State<GamePage> {
             child: const SafeArea(bottom: false, child: TelemetryChips()),
           ),
 
-          // KATMAN 3 — Üst orta bant: Manuel/Otonom + Senaryo + Harita
+          // KATMAN 3 — Üst orta bant: Manuel/Otonom + Görev + Harita
           Positioned(
             top: 0.h,
             left: 0,
@@ -90,16 +101,22 @@ class _GamePageState extends State<GamePage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const AutonomusButton(),
+                    AutonomusButton(
+                      activeTab: _activeTab,
+                      onTabChange: _onTabChange,
+                    ),
                     SizedBox(width: 12.w),
-                    const FeatureButtons(),
+                    FeatureButtons(
+                      activeTab: _activeTab,
+                      onTabChange: _onTabChange,
+                    ),
                   ],
                 ),
               ),
             ),
           ),
 
-          // KATMAN 4 — Sol kenar: Toolbar (üstte) + Buzzer (en altta)
+          // KATMAN 4 — Sol kenar: Toolbar (her zaman görünür)
           Positioned(
             top: topOffset,
             bottom: 12.h,
@@ -112,15 +129,16 @@ class _GamePageState extends State<GamePage> {
             ),
           ),
 
-          // KATMAN 5 — Sağ kenar: E-Stop dikey
-          Positioned(
-            top: 42.h,
-            right: 85.w,
-            child: const SafeArea(child: EStopButton()),
-          ),
+          // KATMAN 5 — E-Stop (yalnızca MANUEL sekmesinde)
+          if (isManuel)
+            Positioned(
+              top: 42.h,
+              right: 85.w,
+              child: const SafeArea(child: EStopButton()),
+            ),
 
-          // KATMAN 5b — Durum kartları (merkez, joystick'ler arası boşluk)
-          if (_showStatusCards)
+          // KATMAN 5b — Durum kartları (yalnızca MANUEL sekmesinde)
+          if (isManuel && _showStatusCards)
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.only(
@@ -136,49 +154,69 @@ class _GamePageState extends State<GamePage> {
               ),
             ),
 
-          // KATMAN 5c — Son mesaj şeridi (sol alt)
+          // KATMAN 5c — Son mesaj şeridi (sol alt, her zaman görünür)
           Positioned(
             bottom: -8.h,
             left: 18.w,
             child: const SafeArea(child: LastMessageBar()),
           ),
 
-          // KATMAN 6 — Lift joystick + toggle butonu (sol-orta)
-          Positioned(
-            left: 98.w,
-            bottom: 12.h,
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Toggle butonu — lift joystick'in hemen üstünde
-                  _StatusToggleButton(
-                    active: _showStatusCards,
-                    onTap: () =>
-                        setState(() => _showStatusCards = !_showStatusCards),
-                  ),
-                  SizedBox(height: 6.h),
-                  const LiftJoystick(),
-                ],
+          // KATMAN 6 — Lift joystick + toggle butonu (yalnızca MANUEL)
+          if (isManuel)
+            Positioned(
+              left: 98.w,
+              bottom: 12.h,
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _StatusToggleButton(
+                      active: _showStatusCards,
+                      onTap: () =>
+                          setState(() => _showStatusCards = !_showStatusCards),
+                    ),
+                    SizedBox(height: 6.h),
+                    const LiftJoystick(),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // KATMAN 7 — Ana sürüş joystick'i (sağ-orta, E-Stop'un solunda)
-          Positioned(
-            right: 48.w,
-            bottom: 12.h,
-            child: SafeArea(child: Joystick(isCameraOn: isCameraOn)),
-          ),
+          // KATMAN 7 — Ana sürüş joystick'i (yalnızca MANUEL)
+          if (isManuel)
+            Positioned(
+              right: 48.w,
+              bottom: 12.h,
+              child: SafeArea(child: Joystick(isCameraOn: isCameraOn)),
+            ),
+
+          // KATMAN 8 — Görev paneli (GÖREV sekmesi)
+          if (_activeTab == AppTab.gorev)
+            Positioned(
+              top: topOffset + 10.h,
+              bottom: 14.h,
+              left: 70.w,
+              right: 10.w,
+              child: const SafeArea(child: MissionPanel()),
+            ),
+
+          // KATMAN 9 — Harita paneli (HARİTA sekmesi)
+          if (_activeTab == AppTab.harita)
+            Positioned(
+              top: topOffset + 10.h,
+              bottom: 14.h,
+              left: 70.w,
+              right: 10.w,
+              child: const SafeArea(child: MapPanel()),
+            ),
         ],
       ),
     );
   }
 }
 
-/// Sol kenardaki dikey kontrol şeridi.
-/// Üstte: Ayarlar, Bluetooth, Kamera
-/// Altta: Buzzer
+// ── Sol dikey kontrol şeridi ──────────────────────────────────────────────────
+
 class _LeftRail extends StatelessWidget {
   final bool isCameraOn;
   final VoidCallback onToggleCamera;
@@ -191,7 +229,6 @@ class _LeftRail extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Üst grup
         Column(
           mainAxisSize: MainAxisSize.max,
           children: [
@@ -217,13 +254,13 @@ class _LeftRail extends StatelessWidget {
             const AccessoryButtons(),
           ],
         ),
-        // Alt: aksesuar (buzzer)
       ],
     );
   }
 }
 
-/// Lift joystick'in üzerinde duran kompakt durum kartı toggle butonu.
+// ── Durum kartı toggle butonu ─────────────────────────────────────────────────
+
 class _StatusToggleButton extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
@@ -256,6 +293,8 @@ class _StatusToggleButton extends StatelessWidget {
     );
   }
 }
+
+// ── Toolbar butonu ────────────────────────────────────────────────────────────
 
 class _ToolbarButton extends StatelessWidget {
   final IconData icon;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'models/app_tab.dart';
 import 'services/agv_native_bridge.dart';
 import 'theme/agv_colors.dart';
 import 'theme/agv_decorations.dart';
@@ -58,57 +59,88 @@ class _AccessoryButtonsState extends State<AccessoryButtons> {
   }
 }
 
-/// Üst panel: Harita / Senaryo aksiyon chip'leri.
+/// Üst panel: Görev / Harita sekme butonları.
 class FeatureButtons extends StatelessWidget {
-  const FeatureButtons({super.key});
+  final AppTab activeTab;
+  final void Function(AppTab) onTabChange;
+
+  const FeatureButtons({
+    super.key,
+    required this.activeTab,
+    required this.onTabChange,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _ActionChip(
+        _TabChip(
           icon: Icons.assignment,
           label: 'GÖREV',
           accent: AgvColors.info,
+          isActive: activeTab == AppTab.gorev,
+          onTap: () => onTabChange(
+            activeTab == AppTab.gorev ? AppTab.manuel : AppTab.gorev,
+          ),
         ),
         SizedBox(width: 8.w),
-        _ActionChip(icon: Icons.map, label: 'HARİTA', accent: AgvColors.lift),
+        _TabChip(
+          icon: Icons.map,
+          label: 'HARİTA',
+          accent: AgvColors.lift,
+          isActive: activeTab == AppTab.harita,
+          onTap: () => onTabChange(
+            activeTab == AppTab.harita ? AppTab.manuel : AppTab.harita,
+          ),
+        ),
       ],
     );
   }
 }
 
-class _ActionChip extends StatelessWidget {
+class _TabChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color accent;
+  final bool isActive;
+  final VoidCallback onTap;
 
-  const _ActionChip({
+  const _TabChip({
     required this.icon,
     required this.label,
     required this.accent,
+    required this.isActive,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final effectiveAccent = isActive ? accent : accent.withValues(alpha: 0.35);
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         borderRadius: BorderRadius.circular(10.r),
         child: Ink(
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-          decoration: AgvDecorations.statusChip(accent),
+          decoration: isActive
+              ? AgvDecorations.statusChip(accent)
+              : BoxDecoration(
+                  color: accent.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(color: accent.withValues(alpha: 0.2)),
+                ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: accent, size: 18.r),
+              Icon(icon, color: effectiveAccent, size: 18.r),
               SizedBox(width: 6.w),
               Text(
                 label,
                 style: AgvTypography.badge.copyWith(
-                  color: accent,
+                  color: effectiveAccent,
                   fontSize: 10.sp,
                 ),
               ),

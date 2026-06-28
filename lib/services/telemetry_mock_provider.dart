@@ -19,7 +19,6 @@ class TelemetryMockProvider {
   Timer? _timer;
   double _battery = 87.0;
   double _speed = 0.0;
-  double _speedTarget = 0.0;
   String _mode = 'M';
   int _tick = 0;
   final _random = Random();
@@ -60,10 +59,8 @@ class TelemetryMockProvider {
     }
 
     // Hız hedefini periyodik değiştir, mevcut hızı hedefe yaklaştır (smoothing).
-    if (_tick % 25 == 0) {
-      _speedTarget = _random.nextDouble() * 1.5;
-    }
-    _speed += (_speedTarget - _speed) * 0.15;
+
+    _speed = 1.23;
 
     // Mod 10 saniyede bir değişebilir.
     if (_tick % 50 == 0 && _random.nextDouble() < 0.3) {

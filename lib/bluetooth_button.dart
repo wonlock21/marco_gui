@@ -5,8 +5,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'services/agv_native_bridge.dart';
 import 'services/connection_controller.dart';
 import 'theme/agv_colors.dart';
-import 'theme/agv_decorations.dart';
 import 'theme/agv_typography.dart';
+import 'widgets/connection_panel.dart';
 
 class BluetoothButton extends StatefulWidget {
   const BluetoothButton({super.key});
@@ -19,16 +19,22 @@ class _BluetoothButtonState extends State<BluetoothButton> {
   final _bridge = AgvNativeBridge.instance;
   final _connection = ConnectionController.instance;
 
-  void _onFabPressed() async {
-    if (_connection.state.value.isConnected) {
-      _showSnack(
-        'Zaten bağlısın (basılı tutarak kesebilirsin)',
-        AgvColors.info,
-      );
-      return;
-    }
-
-    await _checkAndRequestPermissions();
+  /// Bağlantı panelini açar (her koşulda).
+  void _openPanel() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.60),
+      builder: (context) => ConnectionPanel(
+        onConnectBluetooth: () {
+          Navigator.pop(context);
+          _checkAndRequestPermissions();
+        },
+        onDisconnectBluetooth: () {
+          Navigator.pop(context);
+          _disconnect();
+        },
+      ),
+    );
   }
 
   Future<void> _checkAndRequestPermissions() async {
@@ -129,7 +135,7 @@ class _BluetoothButtonState extends State<BluetoothButton> {
                   Expanded(
                     child: ListView.separated(
                       itemCount: devices.length,
-                      separatorBuilder: (_, _) => SizedBox(height: 6.h),
+                      separatorBuilder: (context, index) => SizedBox(height: 6.h),
                       itemBuilder: (context, index) {
                         final device = devices[index];
                         return _DeviceTile(
@@ -198,16 +204,14 @@ class _BluetoothButtonState extends State<BluetoothButton> {
             : (isLoading ? AgvColors.warning : AgvColors.info);
 
         return Semantics(
-          label: isConnected
-              ? 'Bluetooth bağlı — basılı tutarak kes'
-              : 'Bluetooth cihaz seç',
+          label: 'Bağlantı panelini aç',
           button: true,
           child: GestureDetector(
             onLongPress: isConnected ? _disconnect : null,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: isLoading ? null : _onFabPressed,
+                onTap: _openPanel,
                 borderRadius: BorderRadius.circular(999),
                 child: Ink(
                   width: 44.r,
@@ -236,7 +240,7 @@ class _BluetoothButtonState extends State<BluetoothButton> {
                       : Icon(
                           isConnected
                               ? Icons.bluetooth_connected
-                              : Icons.bluetooth,
+                              : Icons.cable,
                           color: accent,
                           size: 20.r,
                         ),
@@ -269,7 +273,11 @@ class _DeviceTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10.r),
         child: Ink(
-          decoration: AgvDecorations.solidPanel(radius: 10),
+          decoration: BoxDecoration(
+            color: AgvColors.surfaceElevated,
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(color: AgvColors.borderSubtle),
+          ),
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
           child: Row(
             children: [
@@ -281,11 +289,7 @@ class _DeviceTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 alignment: Alignment.center,
-                child: Icon(
-                  Icons.bluetooth,
-                  color: AgvColors.accent,
-                  size: 18.r,
-                ),
+                child: Icon(Icons.bluetooth, color: AgvColors.accent, size: 18.r),
               ),
               SizedBox(width: 10.w),
               Expanded(
