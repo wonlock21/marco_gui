@@ -5,6 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../models/agv_mission_state.dart';
 import '../services/mission_controller.dart';
+import '../services/ros_bridge_client.dart';
+import '../services/ros_connection_controller.dart';
 import '../theme/agv_colors.dart';
 import '../theme/agv_typography.dart';
 
@@ -51,11 +53,14 @@ class _MissionPanelState extends State<MissionPanel> {
   }
 
   int _activePhase(MissionStatus status) => switch (status) {
-        MissionStatus.idle => 0,
-        MissionStatus.unloaded => 1,
-        MissionStatus.loaded => 3,
-        MissionStatus.error => -1, // güvenli duruş
-      };
+    MissionStatus.idle => 0,
+    MissionStatus.received => 0,
+    MissionStatus.unloaded => 1,
+    MissionStatus.loaded => 3,
+    MissionStatus.waitingPlc => 4,
+    MissionStatus.returning => 6,
+    MissionStatus.error || MissionStatus.estop => -1,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -88,6 +93,7 @@ class _MissionPanelState extends State<MissionPanel> {
             statusAccent: statusAccent,
             duration: _duration,
           ),
+          _MissionActions(state: s),
           Divider(height: 1, color: AgvColors.divider),
 
           // ── İçerik: info + aşama ────────────────────────────────
@@ -95,31 +101,23 @@ class _MissionPanelState extends State<MissionPanel> {
             child: Padding(
               padding: EdgeInsets.all(10.r),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Sol: bilgi gridesi — kırpılarak taşmayı önle
                   Expanded(
                     flex: 3,
-                    child: ClipRect(
-                      child: OverflowBox(
-                        alignment: Alignment.topLeft,
-                        maxHeight: double.infinity,
-                        child: _InfoGrid(state: s, duration: _duration),
-                      ),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: _InfoGrid(state: s, duration: _duration),
                     ),
                   ),
                   SizedBox(width: 10.w),
-                  // Sağ: aşama listesi — kırpılarak taşmayı önle
                   Expanded(
                     flex: 2,
-                    child: ClipRect(
-                      child: OverflowBox(
-                        alignment: Alignment.topLeft,
-                        maxHeight: double.infinity,
-                        child: _PhaseList(
-                          phases: _phases,
-                          activeIndex: activeIdx,
-                        ),
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: _PhaseList(
+                        phases: _phases,
+                        activeIndex: activeIdx,
                       ),
                     ),
                   ),
@@ -133,18 +131,122 @@ class _MissionPanelState extends State<MissionPanel> {
   }
 
   static String _missionLabel(MissionStatus v) => switch (v) {
-        MissionStatus.loaded => 'Yüklü Hareket',
-        MissionStatus.unloaded => 'Yüksüz Hareket',
-        MissionStatus.idle => 'Beklemede',
-        MissionStatus.error => 'Güvenli Duruş',
-      };
+    MissionStatus.received => 'Görev Alındı',
+    MissionStatus.loaded => 'Yüklü Hareket',
+    MissionStatus.unloaded => 'Yüksüz Hareket',
+    MissionStatus.waitingPlc => 'PLC Bekleniyor',
+    MissionStatus.returning => 'Başlangıca Dönüş',
+    MissionStatus.idle => 'Beklemede',
+    MissionStatus.error => 'Güvenli Duruş',
+    MissionStatus.estop => 'Acil Stop',
+  };
 
   static Color _missionAccent(MissionStatus v) => switch (v) {
-        MissionStatus.loaded => AgvColors.warning,
-        MissionStatus.unloaded => AgvColors.info,
-        MissionStatus.idle => AgvColors.info,
-        MissionStatus.error => AgvColors.danger,
-      };
+    MissionStatus.received => AgvColors.info,
+    MissionStatus.loaded => AgvColors.warning,
+    MissionStatus.unloaded => AgvColors.info,
+    MissionStatus.waitingPlc => AgvColors.warning,
+    MissionStatus.returning => AgvColors.info,
+    MissionStatus.idle => AgvColors.info,
+    MissionStatus.error || MissionStatus.estop => AgvColors.danger,
+  };
+}
+
+class _MissionActions extends StatelessWidget {
+  final AgvMissionState state;
+  const _MissionActions({required this.state});
+
+  Future<void> _run(Future<Map<String, dynamic>> Function() action) async {
+    try {
+      await action();
+    } catch (error) {
+      MissionController.instance.postMessage('ROS servis hatası: $error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ros = RosConnectionController.instance;
+    return ValueListenableBuilder<RosConnectionState>(
+      valueListenable: ros.state,
+      builder: (context, connection, _) => Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+        child: Row(
+          children: [
+            _ActionButton(
+              label: 'BAŞLAT',
+              onTap: connection.isConnected
+                  ? () => _run(ros.startMission)
+                  : null,
+            ),
+            SizedBox(width: 6.w),
+            _ActionButton(
+              label: 'MANUEL GÖREV',
+              onTap: connection.isConnected
+                  ? () => _run(
+                      () => ros.submitManualTask(
+                        taskId:
+                            'mobile_${DateTime.now().millisecondsSinceEpoch}',
+                        pickupNode: (state.routeFrom ?? '').startsWith('alma_')
+                            ? state.routeFrom!
+                            : 'alma_1',
+                        dropoffNode: (state.routeTo ?? '').startsWith('birak_')
+                            ? state.routeTo!
+                            : 'birak_1',
+                      ),
+                    )
+                  : null,
+            ),
+            SizedBox(width: 6.w),
+            _ActionButton(
+              label: 'İPTAL',
+              danger: true,
+              onTap: connection.isConnected
+                  ? () => _run(ros.cancelMission)
+                  : null,
+            ),
+            SizedBox(width: 6.w),
+            _ActionButton(
+              label: 'RESET SAFETY',
+              onTap: connection.isConnected
+                  ? () => _run(ros.resetMissionSafety)
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final bool danger;
+  const _ActionButton({
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = danger ? AgvColors.danger : AgvColors.info;
+    return Expanded(
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          side: BorderSide(color: color.withValues(alpha: 0.6)),
+          padding: EdgeInsets.symmetric(vertical: 4.h),
+        ),
+        child: Text(
+          label,
+          style: AgvTypography.technical(size: 8.sp, color: color),
+        ),
+      ),
+    );
+  }
 }
 
 // ── Başlık satırı ─────────────────────────────────────────────────────────────
@@ -207,7 +309,11 @@ class _Header extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.timer_outlined, size: 11.r, color: AgvColors.textMuted),
+              Icon(
+                Icons.timer_outlined,
+                size: 11.r,
+                color: AgvColors.textMuted,
+              ),
               SizedBox(width: 3.w),
               Text(
                 duration,
@@ -266,7 +372,44 @@ class _InfoGrid extends StatelessWidget {
       _InfoItem('SONRAKI', state.nextStep ?? 'Yük Alma', AgvColors.info),
       _InfoItem('ALMA', state.routeFrom ?? 'A2', AgvColors.warning),
       _InfoItem('BIRAKMA', state.routeTo ?? 'B3', AgvColors.lift),
-      _InfoItem('SON MESAJ', state.lastSystemMessage ?? 'Görev alındı', AgvColors.textSecondary),
+      _InfoItem('KAYNAK', state.taskSource ?? '—', AgvColors.textSecondary),
+      _InfoItem(
+        'POZ',
+        '${state.poseX.toStringAsFixed(2)}, ${state.poseY.toStringAsFixed(2)}',
+        AgvColors.textSecondary,
+      ),
+      _InfoItem(
+        'LOKALİZASYON',
+        state.localizationValid ? 'Geçerli' : 'Geçersiz',
+        state.localizationValid ? AgvColors.connected : AgvColors.danger,
+      ),
+      _InfoItem(
+        'AKTİF EDGE',
+        state.currentRouteEdge ?? '—',
+        AgvColors.textSecondary,
+      ),
+      _InfoItem(
+        'SAPMA',
+        state.crossTrackError.isFinite
+            ? '${state.crossTrackError.toStringAsFixed(3)} m'
+            : '—',
+        AgvColors.textSecondary,
+      ),
+      _InfoItem(
+        'ENGEL',
+        state.obstacleDetected ? 'VAR' : 'Yok',
+        state.obstacleDetected ? AgvColors.danger : AgvColors.connected,
+      ),
+      _InfoItem(
+        'E-STOP',
+        state.estopActive ? 'AKTİF' : 'Normal',
+        state.estopActive ? AgvColors.danger : AgvColors.connected,
+      ),
+      _InfoItem(
+        'SON MESAJ',
+        state.lastSystemMessage ?? 'Görev alındı',
+        AgvColors.textSecondary,
+      ),
     ];
 
     return Column(

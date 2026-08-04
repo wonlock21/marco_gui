@@ -86,6 +86,7 @@ class _ControlLockOverlayState extends State<ControlLockOverlay>
 
                 return Stack(
                   alignment: Alignment.center,
+                  clipBehavior: Clip.none,
                   children: [
                     IgnorePointer(
                       ignoring: isLocked,

@@ -32,8 +32,13 @@ enum class Direction(val flutterIdx: Int, val agvCommand: String) {
     LEFT(4, "4"),
     DOWN_LEFT(5, "34"),
     DOWN(6, "3"),
-    DOWN_RIGHT(7, "23");
-
+    DOWN_RIGHT(7, "23"),
+    LIFT_UP(8, "9"),
+    LIFT_DOWN(9, "10"),
+    LIFT_STOP(10, "11"),
+    LIFT_RIGHT(11, "17"),
+    LIFT_LEFT(12, "18"),
+    LIFT_SIDE_STOP(13, "19");
     companion object {
         fun fromFlutterIdx(idx: Int): Direction =
             values().firstOrNull { it.flutterIdx == idx } ?: STOP
@@ -123,13 +128,13 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "lift" -> {
-                        val action = call.argument<Int>("action") ?: 0
-                        val commandToSend = when (action) {
-                            1 -> "9"
-                            -1 -> "7"
-                            else -> "8"
-                        }
-                        sendBluetoothCommand(commandToSend)
+                        val action = call.argument<Int>("action") ?: 10
+                        val direction = Direction.fromFlutterIdx(action)
+                        sendBluetoothCommand(direction.agvCommand)
+                        android.util.Log.d(
+                            "Lift",
+                            "Lift komutu: $direction → ${direction.agvCommand} (flutterIdx=$action)",
+                        )
                         result.success(null)
                     }
 

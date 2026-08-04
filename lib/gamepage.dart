@@ -10,8 +10,11 @@ import 'bluetooth_button.dart';
 import 'camera_view.dart';
 import 'joystick.dart';
 import 'lift_joystick.dart';
+import 'log_manager.dart';
 import 'models/app_tab.dart';
+import 'services/ros_connection_controller.dart';
 import 'theme/agv_colors.dart';
+import 'theme/agv_typography.dart';
 import 'widgets/connection_status_bar.dart';
 import 'widgets/estop_button.dart';
 import 'widgets/last_message_bar.dart';
@@ -22,6 +25,9 @@ import 'widgets/telemetry_chips.dart';
 
 /// Üst kart şeridinin yaklaşık yüksekliği (chip'lerin oturduğu bant).
 const double _kTopBandHeight = 36;
+
+/// Immersive modda SafeArea inset'leri 0 olduğu için kenar boşluğu.
+const double _kEdgePad = 16;
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -51,14 +57,17 @@ class _GamePageState extends State<GamePage> {
 
   @override
   void dispose() {
+    RosConnectionController.instance.stopManual();
     WakelockPlus.disable();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final topOffset = _kTopBandHeight + 8.h;
+    final topOffset = _kTopBandHeight + _kEdgePad.h + 8.h;
     final isManuel = _activeTab == AppTab.manuel;
+    // Son mesaj şeridi yüksekliği kadar lift grubunu yukarı çek.
+    final bottomBarClearance = 36.h;
 
     return Scaffold(
       backgroundColor: AgvColors.background,
@@ -68,7 +77,7 @@ class _GamePageState extends State<GamePage> {
           if (isCameraOn && isManuel)
             Positioned.fill(
               child: Padding(
-                padding: EdgeInsets.only(top: _kTopBandHeight),
+                padding: EdgeInsets.only(top: _kTopBandHeight + _kEdgePad),
                 child: CameraView(streamUrl: 'http://192.168.1.100:81/stream'),
               ),
             )
@@ -77,21 +86,21 @@ class _GamePageState extends State<GamePage> {
 
           // KATMAN 2a — Bağlantı durumu chip'i (sol üst, bağımsız)
           Positioned(
-            top: 0.h,
+            top: _kEdgePad.h,
             left: 18.w,
             child: const SafeArea(bottom: false, child: ConnectionStatusBar()),
           ),
 
           // KATMAN 2b — Telemetri chip'leri (sağ üst, bağımsız)
           Positioned(
-            top: 0.h,
+            top: _kEdgePad.h,
             right: 24.w,
             child: const SafeArea(bottom: false, child: TelemetryChips()),
           ),
 
           // KATMAN 3 — Üst orta bant: Manuel/Otonom + Görev + Harita
           Positioned(
-            top: 0.h,
+            top: _kEdgePad.h,
             left: 0,
             right: 80,
             child: SafeArea(
@@ -119,9 +128,11 @@ class _GamePageState extends State<GamePage> {
           // KATMAN 4 — Sol kenar: Toolbar (her zaman görünür)
           Positioned(
             top: topOffset,
-            bottom: 12.h,
+            bottom: _kEdgePad.h + 8.h,
             left: 8.w,
             child: SafeArea(
+              top: false,
+              bottom: false,
               child: _LeftRail(
                 isCameraOn: isCameraOn,
                 onToggleCamera: () => setState(() => isCameraOn = !isCameraOn),
@@ -129,12 +140,17 @@ class _GamePageState extends State<GamePage> {
             ),
           ),
 
-          // KATMAN 5 — E-Stop (yalnızca MANUEL sekmesinde)
+          // KATMAN 5 — E-Stop (telemetri ile joystick arasında ortalı)
           if (isManuel)
             Positioned(
-              top: 42.h,
-              right: 85.w,
-              child: const SafeArea(child: EStopButton()),
+              right: 48.w,
+              top: topOffset + 8.h,
+              bottom:
+                  _kEdgePad.h + 4.h + MediaQuery.of(context).size.height * 0.36,
+              child: const Align(
+                alignment: Alignment.centerRight,
+                child: EStopButton(),
+              ),
             ),
 
           // KATMAN 5b — Durum kartları (yalnızca MANUEL sekmesinde)
@@ -142,9 +158,9 @@ class _GamePageState extends State<GamePage> {
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.only(
-                  left: 160.w,
+                  left: 215.w,
                   right: 160.w,
-                  top: topOffset + 4.h,
+                  top: 0.h,
                   bottom: 8.h,
                 ),
                 child: const Align(
@@ -154,29 +170,44 @@ class _GamePageState extends State<GamePage> {
               ),
             ),
 
-          // KATMAN 5c — Son mesaj şeridi (sol alt, her zaman görünür)
+          // KATMAN 5c — Son mesaj + TX (sol alt, lift'lerin altında)
           Positioned(
-            bottom: -8.h,
+            bottom: _kEdgePad.h,
             left: 18.w,
-            child: const SafeArea(child: LastMessageBar()),
+            child: SafeArea(
+              top: false,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const LastMessageBar(),
+                  SizedBox(width: 8.w),
+                  const _TxBar(),
+                ],
+              ),
+            ),
           ),
 
-          // KATMAN 6 — Lift joystick + toggle butonu (yalnızca MANUEL)
+          // KATMAN 6 — Lift joystick'ler + toggle (toolbar'ın sağında, altta)
           if (isManuel)
             Positioned(
               left: 98.w,
-              bottom: 12.h,
+              bottom: 48.h,
               child: SafeArea(
+                top: false,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _StatusToggleButton(
                       active: _showStatusCards,
                       onTap: () =>
                           setState(() => _showStatusCards = !_showStatusCards),
                     ),
-                    SizedBox(height: 6.h),
+                    SizedBox(height: 4.h),
                     const LiftJoystick(),
+                    SizedBox(height: 6.h),
+                    const LiftSideJoystick(),
                   ],
                 ),
               ),
@@ -186,15 +217,18 @@ class _GamePageState extends State<GamePage> {
           if (isManuel)
             Positioned(
               right: 48.w,
-              bottom: 12.h,
-              child: SafeArea(child: Joystick(isCameraOn: isCameraOn)),
+              bottom: _kEdgePad.h + 4.h,
+              child: SafeArea(
+                top: false,
+                child: Joystick(isCameraOn: isCameraOn),
+              ),
             ),
 
           // KATMAN 8 — Görev paneli (GÖREV sekmesi)
           if (_activeTab == AppTab.gorev)
             Positioned(
               top: topOffset + 10.h,
-              bottom: 14.h,
+              bottom: _kEdgePad.h + bottomBarClearance,
               left: 70.w,
               right: 10.w,
               child: const SafeArea(child: MissionPanel()),
@@ -204,7 +238,7 @@ class _GamePageState extends State<GamePage> {
           if (_activeTab == AppTab.harita)
             Positioned(
               top: topOffset + 10.h,
-              bottom: 14.h,
+              bottom: _kEdgePad.h + bottomBarClearance,
               left: 70.w,
               right: 10.w,
               child: const SafeArea(child: MapPanel()),
@@ -226,34 +260,27 @@ class _LeftRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Column(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            _ToolbarButton(
-              icon: Icons.settings,
-              color: AgvColors.textSecondary,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AgvSettingsPage(),
-                ),
-              ),
-            ),
-            SizedBox(height: 8.h),
-            const BluetoothButton(),
-            SizedBox(height: 8.h),
-            _ToolbarButton(
-              icon: isCameraOn ? Icons.videocam_off : Icons.videocam,
-              color: isCameraOn ? AgvColors.danger : AgvColors.info,
-              onTap: onToggleCamera,
-            ),
-            SizedBox(height: 2.h),
-            const AccessoryButtons(),
-          ],
+        _ToolbarButton(
+          icon: Icons.settings,
+          color: AgvColors.textSecondary,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AgvSettingsPage()),
+          ),
         ),
+        SizedBox(height: 6.h),
+        const BluetoothButton(),
+        SizedBox(height: 6.h),
+        _ToolbarButton(
+          icon: isCameraOn ? Icons.videocam_off : Icons.videocam,
+          color: isCameraOn ? AgvColors.danger : AgvColors.info,
+          onTap: onToggleCamera,
+        ),
+        SizedBox(height: 2.h),
+        const AccessoryButtons(),
       ],
     );
   }
@@ -324,6 +351,57 @@ class _ToolbarButton extends StatelessWidget {
           ),
           child: Icon(icon, color: color, size: 20.r),
         ),
+      ),
+    );
+  }
+}
+
+// ── TX Göstergesi ─────────────────────────────────────────────────────────────
+/// Kotlin'e gönderilen son joystick ve lift komut numaralarını canlı gösterir.
+class _TxBar extends StatelessWidget {
+  const _TxBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(5.r),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Joystick TX
+          ValueListenableBuilder<String>(
+            valueListenable: LogManager.lastJoyCmdNotifier,
+            builder: (context, cmd, child) => Text(
+              'JOY:$cmd',
+              style: AgvTypography.mono(
+                size: 7.5.sp,
+                color: AgvColors.accent.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 10.h,
+            margin: EdgeInsets.symmetric(horizontal: 5.w),
+            color: Colors.white12,
+          ),
+          // Lift TX
+          ValueListenableBuilder<String>(
+            valueListenable: LogManager.lastLiftCmdNotifier,
+            builder: (context, cmd, child) => Text(
+              'LFT:$cmd',
+              style: AgvTypography.mono(
+                size: 7.5.sp,
+                color: Colors.orangeAccent.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

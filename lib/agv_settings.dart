@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'joystick_settings.dart';
 import 'log_manager.dart';
+import 'pid_settings.dart';
 import 'services/admin_controller.dart';
 import 'services/agv_native_bridge.dart';
 import 'services/connection_controller.dart';
@@ -105,6 +106,19 @@ class _AgvSettingsPageState extends State<AgvSettingsPage> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const JoystickSettingsView(),
+                  ),
+                ),
+              ),
+              SizedBox(height: 8.h),
+              AgvTile(
+                icon: Icons.tune,
+                title: 'PID Ayarları',
+                subtitle: 'Sol ve sağ motor P, I, D değerlerini ayarla',
+                iconColor: AgvColors.warning,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PidSettingsView(),
                   ),
                 ),
               ),

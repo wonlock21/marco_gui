@@ -9,6 +9,12 @@ class LogManager {
   static final ValueNotifier<List<String>> logsNotifier = ValueNotifier([]);
   static bool enabled = true;
 
+  /// Son joystick yön komutu (ekranda göstermek için).
+  static final ValueNotifier<String> lastJoyCmdNotifier = ValueNotifier('—');
+
+  /// Son lift komutu (ekranda göstermek için).
+  static final ValueNotifier<String> lastLiftCmdNotifier = ValueNotifier('—');
+
   static void addLog(String message) {
     if (!enabled) return;
     final now = DateTime.now();

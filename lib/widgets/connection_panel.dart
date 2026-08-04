@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../models/agv_mission_state.dart';
 import '../services/connection_controller.dart';
 import '../services/mission_controller.dart';
+import '../services/ros_connection_controller.dart';
 import '../theme/agv_colors.dart';
 import '../theme/agv_typography.dart';
 
 /// Bluetooth butona basınca açılan bağlantı yönetim popup'ı.
 ///
 /// BT bölümü gerçek [ConnectionController]'a bağlıdır.
-/// WiFi ve PLC bölümleri şimdilik mock state ile çalışır.
+/// WiFi bölümü gerçek rosbridge, PLC durumu /robot_status kaynağıdır.
 class ConnectionPanel extends StatefulWidget {
   /// Kullanıcı "Cihaz Seç" butonuna basınca çağrılır.
   final VoidCallback onConnectBluetooth;
@@ -30,36 +30,41 @@ class ConnectionPanel extends StatefulWidget {
 }
 
 class _ConnectionPanelState extends State<ConnectionPanel> {
-  // Mock WiFi state
-  bool _wifiConnected = false;
-  bool _wifiLoading = false;
-  final _ipController = TextEditingController(text: '192.168.1.50');
+  final _ros = RosConnectionController.instance;
+  final _ipController = TextEditingController(text: 'ws://localhost:9090');
 
-  // Mock PLC state (reads from MissionController for display)
-  bool _plcMockConnected = false;
+  @override
+  void initState() {
+    super.initState();
+    _ros.state.addListener(_onRosState);
+  }
+
+  void _onRosState() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    _ros.state.removeListener(_onRosState);
     _ipController.dispose();
     super.dispose();
   }
 
-  Future<void> _mockWifiConnect() async {
-    setState(() => _wifiLoading = true);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() {
-      _wifiConnected = true;
-      _wifiLoading = false;
-    });
+  Future<void> _connectRos() async {
+    try {
+      await _ros.connect(_ipController.text);
+    } catch (error) {
+      MissionController.instance.postMessage('ROS bağlantı hatası: $error');
+    }
   }
 
-  void _mockWifiDisconnect() => setState(() => _wifiConnected = false);
-
-  void _mockPlcToggle() => setState(() => _plcMockConnected = !_plcMockConnected);
+  Future<void> _disconnectRos() => _ros.disconnect();
 
   @override
   Widget build(BuildContext context) {
+    final rosState = _ros.state.value;
+    final wifiConnected = rosState.isConnected;
+    final wifiLoading = rosState.isConnecting;
     final screenW = MediaQuery.of(context).size.width;
     final screenH = MediaQuery.of(context).size.height;
 
@@ -107,34 +112,28 @@ class _ConnectionPanelState extends State<ConnectionPanel> {
                             _VDivider(),
                             Expanded(
                               child: _WifiSection(
-                                connected: _wifiConnected,
-                                loading: _wifiLoading,
+                                connected: wifiConnected,
+                                loading: wifiLoading,
+                                statusMessage: rosState.message,
                                 ipController: _ipController,
-                                onConnect: _mockWifiConnect,
-                                onDisconnect: _mockWifiDisconnect,
+                                onConnect: _connectRos,
+                                onDisconnect: _disconnectRos,
                               ),
                             ),
                             _VDivider(),
-                            Expanded(
-                              child: _PlcSection(
-                                mockConnected: _plcMockConnected,
-                                onToggle: _mockPlcToggle,
-                              ),
-                            ),
+                            Expanded(child: _PlcSection()),
                           ],
                         ),
                       ),
                       // Butonlar — daima altta, daima görünür
                       Divider(height: 12.h, color: AgvColors.divider),
                       _ButtonsRow(
-                        wifiConnected: _wifiConnected,
-                        wifiLoading: _wifiLoading,
-                        plcMockConnected: _plcMockConnected,
+                        wifiConnected: wifiConnected,
+                        wifiLoading: wifiLoading,
                         onBtConnect: widget.onConnectBluetooth,
                         onBtDisconnect: widget.onDisconnectBluetooth,
-                        onWifiConnect: _mockWifiConnect,
-                        onWifiDisconnect: _mockWifiDisconnect,
-                        onPlcToggle: _mockPlcToggle,
+                        onWifiConnect: _connectRos,
+                        onWifiDisconnect: _disconnectRos,
                       ),
                     ],
                   ),
@@ -199,10 +198,7 @@ class _VDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 10.w),
-      child: Container(
-        width: 1,
-        color: AgvColors.divider,
-      ),
+      child: Container(width: 1, color: AgvColors.divider),
     );
   }
 }
@@ -225,13 +221,13 @@ class _BtSection extends StatelessWidget {
         final accent = isConnected
             ? AgvColors.connected
             : isConnecting
-                ? AgvColors.connecting
-                : AgvColors.disconnected;
+            ? AgvColors.connecting
+            : AgvColors.disconnected;
         final statusLabel = isConnected
             ? 'Bağlı'
             : isConnecting
-                ? 'Bağlanıyor...'
-                : 'Bağlı Değil';
+            ? 'Bağlanıyor...'
+            : 'Bağlı Değil';
 
         return _Section(
           icon: Icons.bluetooth,
@@ -239,7 +235,11 @@ class _BtSection extends StatelessWidget {
           accent: accent,
           children: [
             _StatusRow(label: 'Durum', value: statusLabel, color: accent),
-            _StatusRow(label: 'Kanal', value: conn.deviceAddress ?? 'HC-06', color: AgvColors.textSecondary),
+            _StatusRow(
+              label: 'Kanal',
+              value: conn.deviceAddress ?? 'HC-06',
+              color: AgvColors.textSecondary,
+            ),
           ],
         );
       },
@@ -252,6 +252,7 @@ class _BtSection extends StatelessWidget {
 class _WifiSection extends StatelessWidget {
   final bool connected;
   final bool loading;
+  final String statusMessage;
   final TextEditingController ipController;
   final VoidCallback onConnect;
   final VoidCallback onDisconnect;
@@ -259,6 +260,7 @@ class _WifiSection extends StatelessWidget {
   const _WifiSection({
     required this.connected,
     required this.loading,
+    required this.statusMessage,
     required this.ipController,
     required this.onConnect,
     required this.onDisconnect,
@@ -266,7 +268,11 @@ class _WifiSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = connected ? AgvColors.connected : AgvColors.disconnected;
+    final accent = connected
+        ? AgvColors.connected
+        : loading
+        ? AgvColors.connecting
+        : AgvColors.disconnected;
 
     return _Section(
       icon: Icons.wifi,
@@ -275,7 +281,11 @@ class _WifiSection extends StatelessWidget {
       children: [
         _StatusRow(
           label: 'Durum',
-          value: connected ? 'Bağlı' : 'Bağlı Değil',
+          value: connected
+              ? 'Bağlı'
+              : loading
+              ? 'Bağlanıyor...'
+              : statusMessage,
           color: accent,
         ),
         SizedBox(height: 6.h),
@@ -292,15 +302,15 @@ class _WifiSection extends StatelessWidget {
               size: 10.sp,
               color: AgvColors.textPrimary,
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-            ],
+            keyboardType: TextInputType.url,
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 8.w,
+                vertical: 4.h,
+              ),
               border: InputBorder.none,
-              hintText: '192.168.1.50',
+              hintText: 'ws://192.168.1.50:9090',
               hintStyle: AgvTypography.mono(
                 size: 10.sp,
                 color: AgvColors.textMuted,
@@ -322,23 +332,20 @@ class _WifiSection extends StatelessWidget {
 // ── PLC / Fabrika Bölümü ──────────────────────────────────────────────────────
 
 class _PlcSection extends StatelessWidget {
-  final bool mockConnected;
-  final VoidCallback onToggle;
-
-  const _PlcSection({required this.mockConnected, required this.onToggle});
+  const _PlcSection();
 
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AgvMissionState>(
       valueListenable: MissionController.instance.state,
       builder: (context, s, _) {
-        final plcOn = mockConnected || s.plcConnected;
+        final plcOn = s.plcConnected;
         final accent = plcOn ? AgvColors.accent : AgvColors.disconnected;
         final doorAccent = s.doorPermission == DoorPermission.granted
             ? AgvColors.connected
             : s.doorPermission == DoorPermission.denied
-                ? AgvColors.danger
-                : AgvColors.warning;
+            ? AgvColors.danger
+            : AgvColors.warning;
         final doorLabel = switch (s.doorPermission) {
           DoorPermission.granted => 'Serbest',
           DoorPermission.waiting => 'Bekleniyor',
@@ -350,7 +357,11 @@ class _PlcSection extends StatelessWidget {
           title: 'PLC / Otomasyon',
           accent: accent,
           children: [
-            _StatusRow(label: 'Durum', value: plcOn ? 'Bağlı' : 'Bağlı Değil', color: accent),
+            _StatusRow(
+              label: 'Durum',
+              value: plcOn ? 'Bağlı' : 'Bağlı Değil',
+              color: accent,
+            ),
             _StatusRow(label: 'Kapı İzni', value: doorLabel, color: doorAccent),
             _StatusRow(
               label: 'Son Mesaj',
@@ -370,22 +381,18 @@ class _PlcSection extends StatelessWidget {
 class _ButtonsRow extends StatelessWidget {
   final bool wifiConnected;
   final bool wifiLoading;
-  final bool plcMockConnected;
   final VoidCallback onBtConnect;
   final VoidCallback onBtDisconnect;
   final VoidCallback onWifiConnect;
   final VoidCallback onWifiDisconnect;
-  final VoidCallback onPlcToggle;
 
   const _ButtonsRow({
     required this.wifiConnected,
     required this.wifiLoading,
-    required this.plcMockConnected,
     required this.onBtConnect,
     required this.onBtDisconnect,
     required this.onWifiConnect,
     required this.onWifiDisconnect,
-    required this.onPlcToggle,
   });
 
   @override
@@ -446,12 +453,12 @@ class _ButtonsRow extends StatelessWidget {
           child: ValueListenableBuilder<AgvMissionState>(
             valueListenable: MissionController.instance.state,
             builder: (context, s, child) {
-              final plcOn = plcMockConnected || s.plcConnected;
+              final plcOn = s.plcConnected;
               return _CompactButton(
-                label: plcOn ? 'Bağlantıyı Kes' : 'Bağlan',
-                icon: plcOn ? Icons.link_off : Icons.link,
-                color: plcOn ? AgvColors.danger : AgvColors.accent,
-                onTap: onPlcToggle,
+                label: plcOn ? 'PLC Bağlı' : 'ROS Bekleniyor',
+                icon: plcOn ? Icons.link : Icons.link_off,
+                color: plcOn ? AgvColors.accent : AgvColors.disconnected,
+                onTap: null,
               );
             },
           ),
