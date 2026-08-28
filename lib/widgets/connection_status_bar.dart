@@ -3,13 +3,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../services/admin_controller.dart';
 import '../services/connection_controller.dart';
+import '../services/ros_bridge_client.dart';
+import '../services/ros_connection_controller.dart';
 import '../theme/agv_colors.dart';
 import '../theme/agv_typography.dart';
 
-/// Sol üst köşede Bluetooth bağlantı durumunu gösteren kompakt panel.
-///
-/// Yalnızca tek bağlantı kaynağı (Bluetooth) gösterilir; robot haberleşmesi
-/// de aynı kanal üzerinden yürütüldüğünden ayrı satır eklenmez.
+/// Sol üst köşede Bluetooth ve ROS bağlantılarını ayrı gösteren kompakt panel.
 class ConnectionStatusBar extends StatelessWidget {
   const ConnectionStatusBar({super.key});
 
@@ -20,52 +19,85 @@ class ConnectionStatusBar extends StatelessWidget {
       builder: (context, isAdmin, _) {
         return ValueListenableBuilder<AgvConnectionState>(
           valueListenable: ConnectionController.instance.state,
-          builder: (context, conn, _) => _buildPanel(conn, isAdmin),
+          builder: (context, bluetooth, _) {
+            return ValueListenableBuilder<RosConnectionState>(
+              valueListenable: RosConnectionController.instance.state,
+              builder: (context, ros, _) =>
+                  _buildPanel(bluetooth, ros, isAdmin),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildPanel(AgvConnectionState conn, bool isAdmin) {
-    final bool isConnected =
-        isAdmin || conn.status == AgvConnectionStatus.connected;
-    final bool isConnecting =
-        !isAdmin && conn.status == AgvConnectionStatus.connecting;
+  Widget _buildPanel(
+    AgvConnectionState bluetooth,
+    RosConnectionState ros,
+    bool isAdmin,
+  ) {
+    final btConnected =
+        isAdmin || bluetooth.status == AgvConnectionStatus.connected;
+    final btConnecting =
+        !isAdmin && bluetooth.status == AgvConnectionStatus.connecting;
+    final btError =
+        !isAdmin && bluetooth.status == AgvConnectionStatus.error;
 
-    final Color accent;
-    final String statusLabel;
+    final btColor = btConnected
+        ? AgvColors.connected
+        : btConnecting
+        ? AgvColors.connecting
+        : btError
+        ? AgvColors.danger
+        : AgvColors.disconnected;
+    final btLabel = btConnected
+        ? 'Bağlı'
+        : btConnecting
+        ? 'Bağlanıyor'
+        : btError
+        ? 'Hata'
+        : 'Bağlı Değil';
 
-    if (isConnected) {
-      accent = AgvColors.connected;
-      statusLabel = 'Bağlı';
-    } else if (isConnecting) {
-      accent = AgvColors.connecting;
-      statusLabel = 'Bağlanıyor';
-    } else if (conn.status == AgvConnectionStatus.error) {
-      accent = AgvColors.danger;
-      statusLabel = 'Hata';
-    } else {
-      accent = AgvColors.disconnected;
-      statusLabel = 'Bağlı Değil';
-    }
+    final rosConnected = ros.status == RosConnectionStatus.connected;
+    final rosConnecting =
+        ros.status == RosConnectionStatus.connecting ||
+        ros.status == RosConnectionStatus.reconnecting;
+    final rosError = ros.status == RosConnectionStatus.error;
+    final rosColor = rosConnected
+        ? AgvColors.connected
+        : rosConnecting
+        ? AgvColors.connecting
+        : rosError
+        ? AgvColors.danger
+        : AgvColors.disconnected;
+    final rosLabel = rosConnected
+        ? 'Bağlı'
+        : rosConnecting
+        ? 'Bağlanıyor'
+        : rosError
+        ? 'Hata'
+        : 'Bağlı Değil';
 
-    // Kanal: cihaz adresi varsa göster, yoksa varsayılan.
-    final String channelLabel =
-        conn.deviceAddress ?? (isConnected ? 'HC-06' : '—');
+    final panelAccent = (btConnected || rosConnected)
+        ? AgvColors.connected
+        : (btConnecting || rosConnecting)
+        ? AgvColors.connecting
+        : (btError || rosError)
+        ? AgvColors.danger
+        : AgvColors.disconnected;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 3.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
       decoration: BoxDecoration(
         color: AgvColors.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
-          color: accent.withValues(alpha: isConnected ? 0.6 : 0.3),
+          color: panelAccent.withValues(alpha: 0.5),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: (isConnected ? AgvColors.connected : Colors.black)
-                .withValues(alpha: 0.15),
+            color: panelAccent.withValues(alpha: 0.12),
             blurRadius: 8,
           ),
         ],
@@ -74,95 +106,98 @@ class ConnectionStatusBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Satır 1: BT durumu
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isConnected
-                    ? Icons.bluetooth_connected
-                    : isConnecting
-                        ? Icons.bluetooth_searching
-                        : Icons.bluetooth_disabled,
-                size: 12.r,
-                color: accent,
-              ),
-              SizedBox(width: 5.w),
-              Text(
-                'Bluetooth',
-                style: AgvTypography.technical(
-                  size: 9.sp,
-                  color: AgvColors.textSecondary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              SizedBox(width: 6.w),
-              Container(
-                width: 5.r,
-                height: 5.r,
-                decoration: BoxDecoration(
-                  color: accent,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.55),
-                      blurRadius: 3,
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 4.w),
-              Text(
-                statusLabel,
-                style: AgvTypography.technical(
-                  size: 9.sp,
-                  color: accent,
-                  letterSpacing: 0.4,
-                  weight: FontWeight.w700,
-                ),
-              ),
-              if (isConnecting) ...[
-                SizedBox(width: 6.w),
-                SizedBox(
-                  width: 10.r,
-                  height: 10.r,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: accent,
-                  ),
-                ),
-              ],
-            ],
+          _ConnectionLine(
+            icon: btConnected
+                ? Icons.bluetooth_connected
+                : btConnecting
+                ? Icons.bluetooth_searching
+                : Icons.bluetooth_disabled,
+            title: 'Bluetooth',
+            status: btLabel,
+            color: btColor,
+            loading: btConnecting,
           ),
-          // Satır 2: Kanal adı (yalnızca bağlı veya bağlanıyor durumunda)
-          if (isConnected || isConnecting) ...[
-            SizedBox(height: 2.h),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(width: 17.w), // ikon hizalaması
-                Text(
-                  'Kanal',
-                  style: AgvTypography.technical(
-                    size: 8.sp,
-                    color: AgvColors.textMuted,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                SizedBox(width: 6.w),
-                Text(
-                  channelLabel,
-                  style: AgvTypography.technical(
-                    size: 8.sp,
-                    color: AgvColors.textSecondary,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          SizedBox(height: 3.h),
+          _ConnectionLine(
+            icon: rosConnected
+                ? Icons.hub
+                : rosConnecting
+                ? Icons.sync
+                : Icons.hub_outlined,
+            title: 'ROS',
+            status: rosLabel,
+            color: rosColor,
+            loading: rosConnecting,
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _ConnectionLine extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String status;
+  final Color color;
+  final bool loading;
+
+  const _ConnectionLine({
+    required this.icon,
+    required this.title,
+    required this.status,
+    required this.color,
+    required this.loading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12.r, color: color),
+        SizedBox(width: 5.w),
+        SizedBox(
+          width: 52.w,
+          child: Text(
+            title,
+            style: AgvTypography.technical(
+              size: 9.sp,
+              color: AgvColors.textSecondary,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        Container(
+          width: 5.r,
+          height: 5.r,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.55), blurRadius: 3),
+            ],
+          ),
+        ),
+        SizedBox(width: 4.w),
+        Text(
+          status,
+          style: AgvTypography.technical(
+            size: 9.sp,
+            color: color,
+            letterSpacing: 0.4,
+            weight: FontWeight.w700,
+          ),
+        ),
+        if (loading) ...[
+          SizedBox(width: 6.w),
+          SizedBox(
+            width: 9.r,
+            height: 9.r,
+            child: CircularProgressIndicator(strokeWidth: 1.4, color: color),
+          ),
+        ],
+      ],
     );
   }
 }

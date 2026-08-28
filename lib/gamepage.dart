@@ -73,16 +73,21 @@ class _GamePageState extends State<GamePage> {
       backgroundColor: AgvColors.background,
       body: Stack(
         children: [
-          // KATMAN 1 — Zemin / Kamera
+          // KATMAN 1 — Grid zemin her zaman görünür.
+          const BackgroundColor(),
+
+          // Kamera yalnızca kendi alanındaki grid'i örter.
           if (isCameraOn && isManuel)
-            Positioned.fill(
-              child: Padding(
-                padding: EdgeInsets.only(top: _kTopBandHeight + _kEdgePad),
-                child: CameraView(streamUrl: 'http://192.168.1.100:81/stream'),
+            Positioned(
+              top: 35.h,
+              bottom: 75.h,
+              left: 225.w,
+              right: 205.w,
+              child: const CameraView(
+                streamUrl:
+                    'http://100.76.148.66:8080/stream?topic=/camera/image_raw&type=mjpeg',
               ),
-            )
-          else
-            const BackgroundColor(),
+            ),
 
           // KATMAN 2a — Bağlantı durumu chip'i (sol üst, bağımsız)
           Positioned(
@@ -99,35 +104,36 @@ class _GamePageState extends State<GamePage> {
           ),
 
           // KATMAN 3 — Üst orta bant: Manuel/Otonom + Görev + Harita
-          Positioned(
-            top: _kEdgePad.h,
-            left: 0,
-            right: 80,
-            child: SafeArea(
-              bottom: false,
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    AutonomusButton(
-                      activeTab: _activeTab,
-                      onTabChange: _onTabChange,
-                    ),
-                    SizedBox(width: 12.w),
-                    FeatureButtons(
-                      activeTab: _activeTab,
-                      onTabChange: _onTabChange,
-                    ),
-                  ],
+          if (!isCameraOn)
+            Positioned(
+              top: _kEdgePad.h,
+              left: 0,
+              right: 80,
+              child: SafeArea(
+                bottom: false,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      AutonomusButton(
+                        activeTab: _activeTab,
+                        onTabChange: _onTabChange,
+                      ),
+                      SizedBox(width: 12.w),
+                      FeatureButtons(
+                        activeTab: _activeTab,
+                        onTabChange: _onTabChange,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
 
           // KATMAN 4 — Sol kenar: Toolbar (her zaman görünür)
           Positioned(
-            top: topOffset,
+            top: topOffset + 10.h,
             bottom: _kEdgePad.h + 8.h,
             left: 8.w,
             child: SafeArea(
@@ -135,7 +141,10 @@ class _GamePageState extends State<GamePage> {
               bottom: false,
               child: _LeftRail(
                 isCameraOn: isCameraOn,
-                onToggleCamera: () => setState(() => isCameraOn = !isCameraOn),
+                onToggleCamera: () => setState(() {
+                  isCameraOn = !isCameraOn;
+                  if (isCameraOn) _showStatusCards = false;
+                }),
               ),
             ),
           ),
