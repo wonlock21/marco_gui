@@ -54,6 +54,7 @@ class MainActivity : FlutterActivity() {
     private val MY_UUID: UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private val CONNECT_TIMEOUT_MS = 10_000L
+    private val MANUAL_DRIVE_HEARTBEAT_MS = 100L
 
     private var btSocket: BluetoothSocket? = null
     private var outStream: OutputStream? = null
@@ -66,6 +67,36 @@ class MainActivity : FlutterActivity() {
 
     private var readerThread: Thread? = null
     private val readerRunning = AtomicBoolean(false)
+
+    private val manualDriveHeartbeatHandler = Handler(Looper.getMainLooper())
+    @Volatile
+    private var lastManualDriveHeartbeatCommand: String? = null
+    @Volatile
+    private var isManualDriveHeartbeatRunning = false
+    private val manualDriveHeartbeatRunnable = object : Runnable {
+        override fun run() {
+            val command = lastManualDriveHeartbeatCommand
+            if (!isManualDriveHeartbeatRunning || command == null || !isBtConnected) {
+                stopManualDriveHeartbeat()
+                return
+            }
+
+            sendBluetoothCommand(command)
+
+            // sendBluetoothCommand IOException durumunda closeConnection çağırarak
+            // heartbeat state'ini temizler; bu yüzden yalnız hâlâ aktifse devam et.
+            if (
+                isManualDriveHeartbeatRunning &&
+                lastManualDriveHeartbeatCommand != null &&
+                isBtConnected
+            ) {
+                manualDriveHeartbeatHandler.postDelayed(
+                    this,
+                    MANUAL_DRIVE_HEARTBEAT_MS,
+                )
+            }
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -98,7 +129,21 @@ class MainActivity : FlutterActivity() {
                     "joystick" -> {
                         val dirCode = call.argument<Int>("dir") ?: -1
                         val direction = Direction.fromFlutterIdx(dirCode)
-                        sendBluetoothCommand(direction.agvCommand)
+
+                        if (direction == Direction.STOP) {
+                            // STOP periyodik gönderilmez: loop önce durur, "0" bir kez gider.
+                            stopManualDriveHeartbeat()
+                            sendBluetoothCommand(direction.agvCommand)
+                        } else if (direction.flutterIdx in 0..7) {
+                            // Yeni yön hemen gider; çalışan tek loop sonraki tick'lerde
+                            // güncel komutu yaklaşık her 100 ms tekrarlar.
+                            sendBluetoothCommand(direction.agvCommand)
+                            startOrUpdateManualDriveHeartbeat(direction.agvCommand)
+                        } else {
+                            // Drive dışı bir indeks yanlışlıkla bu kanala gelirse mevcut
+                            // tek-seferlik davranışı koru, heartbeat üretme.
+                            sendBluetoothCommand(direction.agvCommand)
+                        }
                         result.success(null)
                     }
 
@@ -140,6 +185,9 @@ class MainActivity : FlutterActivity() {
 
                     "setMode" -> {
                         val isAuto = call.argument<Boolean>("isAuto") ?: false
+                        if (isAuto) {
+                            stopManualDriveHeartbeat()
+                        }
                         val commandToSend = if (isAuto) "otonom" else "manuel"
                         sendBluetoothCommand(commandToSend)
                         result.success(null)
@@ -156,6 +204,23 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun startOrUpdateManualDriveHeartbeat(command: String) {
+        lastManualDriveHeartbeatCommand = command
+        if (!isBtConnected || isManualDriveHeartbeatRunning) return
+
+        isManualDriveHeartbeatRunning = true
+        manualDriveHeartbeatHandler.postDelayed(
+            manualDriveHeartbeatRunnable,
+            MANUAL_DRIVE_HEARTBEAT_MS,
+        )
+    }
+
+    private fun stopManualDriveHeartbeat() {
+        isManualDriveHeartbeatRunning = false
+        lastManualDriveHeartbeatCommand = null
+        manualDriveHeartbeatHandler.removeCallbacks(manualDriveHeartbeatRunnable)
     }
 
     override fun onDestroy() {
@@ -299,6 +364,7 @@ class MainActivity : FlutterActivity() {
         val wasConnected = isBtConnected
         val address = connectedAddress
 
+        stopManualDriveHeartbeat()
         stopInputReader()
 
         try {
