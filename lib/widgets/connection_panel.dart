@@ -31,7 +31,7 @@ class ConnectionPanel extends StatefulWidget {
 
 class _ConnectionPanelState extends State<ConnectionPanel> {
   final _ros = RosConnectionController.instance;
-  final _ipController = TextEditingController(text: 'ws://localhost:9090');
+  final _ipController = TextEditingController(text: 'ws://100.76.148.66:9090');
 
   @override
   void initState() {
